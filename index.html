@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>판매 관리 시스템</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩷</text></svg>">
 <style>
   :root {
     --primary: #5c6bc0;
@@ -283,8 +284,13 @@
 
   /* SALES FORM GRID CLASSES */
   .sale-form-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 16px; }
+  .sale-form-grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; margin-bottom: 16px; }
   .sale-form-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; margin-bottom: 16px; }
   .sale-form-grid-last { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 120px; gap: 16px; align-items: flex-end; }
+  /* SETTINGS FORM GRID CLASSES */
+  .settings-form-1a { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: flex-end; }
+  .settings-form-2a { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: flex-end; }
+  .purchase-form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: flex-end; }
 
   /* MOBILE SALES CARD VIEW */
   .sales-table-view { display: block; }
@@ -333,6 +339,7 @@
 
     /* Sales form - 모바일 전부 1열 */
     .sale-form-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sale-form-grid-5 { grid-template-columns: 1fr 1fr; gap: 10px; }
     .sale-form-grid-2 { grid-template-columns: 1fr; gap: 10px; }
     .sale-form-grid-last { grid-template-columns: 1fr; gap: 10px; }
     .sale-form-grid-last button.btn-primary { width: 100%; height: 44px; }
@@ -343,6 +350,15 @@
 
     /* 재고/지출 폼 2열 */
     .sale-form-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+    /* 설정 폼 모바일 */
+    .settings-form-1a { grid-template-columns: 1fr; }
+    .settings-form-1a .form-group:last-child button { width: 100%; }
+    .settings-form-2a { grid-template-columns: 1fr 1fr; }
+    .settings-form-2a .form-group:last-child { grid-column: 1 / -1; }
+    .settings-form-2a .form-group:last-child button { width: 100%; }
+    .purchase-form-grid { grid-template-columns: 1fr 1fr; }
+    .purchase-form-grid .form-group:last-child { grid-column: 1 / -1; }
+    .purchase-form-grid .form-group:last-child button { width: 100%; }
 
     /* 테이블 모바일 compact */
     td { padding: 7px 6px; font-size: 12px; }
@@ -441,10 +457,11 @@
           <button class="btn btn-outline btn-sm" onclick="toggleSaleForm()" id="saleFormToggle">접기</button>
         </div>
         <div id="inlineSaleForm">
-          <div class="sale-form-grid-4">
+          <div class="sale-form-grid-5">
             <div class="form-group"><label>판매자</label><select id="iSeller"><option value="">선택</option></select></div>
             <div class="form-group"><label>플랫폼</label><select id="iPlatform"><option value="">선택</option></select></div>
             <div class="form-group"><label>판매상품</label><select id="iItem" onchange="onItemSelect()"><option value="">선택</option></select></div>
+            <div class="form-group"><label>수량</label><input type="number" id="iQty" min="1" value="1" style="width:100%;"></div>
             <div class="form-group"><label>금액 (₩)</label><input type="number" id="iTotal" min="0" placeholder="0"></div>
           </div>
           <div class="sale-form-grid-2">
@@ -535,7 +552,7 @@
           <div class="card-title">상품 관리</div>
           <div id="itemsList"></div>
           <div class="section-divider">새 상품 추가</div>
-          <div class="form-grid" style="grid-template-columns: 1fr 1fr auto;">
+          <div class="settings-form-2a">
             <div class="form-group"><label>상품명</label><input type="text" id="newItemName" placeholder="예: 단체, 시온, 포카-A"></div>
             <div class="form-group"><label>카테고리</label>
               <select id="newItemCategory"><option value="앨범">앨범</option><option value="포토카드">포토카드</option><option value="기타">기타</option></select>
@@ -547,7 +564,7 @@
           <div class="card-title">플랫폼 관리</div>
           <div id="platformsList"></div>
           <div class="section-divider">새 플랫폼 추가</div>
-          <div class="form-grid" style="grid-template-columns: 1fr auto;">
+          <div class="settings-form-1a">
             <div class="form-group"><label>플랫폼명</label><input type="text" id="newPlatformName" placeholder="예: 번개장터"></div>
             <div class="form-group" style="justify-content:flex-end;"><label>&nbsp;</label><button class="btn btn-success" onclick="addPlatform()">추가</button></div>
           </div>
@@ -556,7 +573,7 @@
           <div class="card-title">배송방법 관리</div>
           <div id="shippingMethodsList"></div>
           <div class="section-divider">새 배송방법 추가</div>
-          <div class="form-grid" style="grid-template-columns: 1fr auto;">
+          <div class="settings-form-1a">
             <div class="form-group"><label>배송방법</label><input type="text" id="newShippingMethod" placeholder="예: GS, 일반택배"></div>
             <div class="form-group" style="justify-content:flex-end;"><label>&nbsp;</label><button class="btn btn-success" onclick="addShippingMethod()">추가</button></div>
           </div>
@@ -565,7 +582,7 @@
           <div class="card-title">택배사 관리</div>
           <div id="couriersList"></div>
           <div class="section-divider">새 택배사 추가</div>
-          <div class="form-grid" style="grid-template-columns: 1fr auto;">
+          <div class="settings-form-1a">
             <div class="form-group"><label>택배사명</label><input type="text" id="newCourier" placeholder="예: CJ대한통운, 한진택배"></div>
             <div class="form-group" style="justify-content:flex-end;"><label>&nbsp;</label><button class="btn btn-success" onclick="addCourier()">추가</button></div>
           </div>
@@ -575,7 +592,7 @@
         <div class="card-title">구매 정보</div>
         <div id="purchasesList"></div>
         <div class="section-divider">새 구매 내역 추가</div>
-        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto;">
+        <div class="purchase-form-grid">
           <div class="form-group"><label>날짜</label><input type="date" id="newPurchaseDate"></div>
           <div class="form-group"><label>음반사</label><input type="text" id="newPurchaseLabel" placeholder="예: SM, HYBE"></div>
           <div class="form-group"><label>구매자</label><select id="newPurchaseBuyer"><option value="">선택</option></select></div>
@@ -610,7 +627,11 @@
       </div>
       <div class="sale-form-grid-2" style="gap:12px;margin-bottom:12px;">
         <div class="form-group"><label>판매상품</label><select id="eItem"><option value="">선택</option></select></div>
+        <div class="form-group"><label>수량</label><input type="number" id="eQty" min="1" value="1" style="width:100%;"></div>
+      </div>
+      <div class="sale-form-grid-2" style="gap:12px;margin-bottom:12px;">
         <div class="form-group"><label>금액 (₩)</label><input type="number" id="eTotal" min="0" placeholder="0"></div>
+        <div></div>
       </div>
       <div class="sale-form-grid-2" style="gap:12px;margin-bottom:12px;">
         <div class="form-group"><label>배송방법</label><select id="eShipMethod"><option value="">선택</option></select></div>
@@ -1841,7 +1862,7 @@ function buildSalesTable(sales, withEdit) {
     + memoHeader + editHeader
     + '</tr></thead><tbody>';
   sales.forEach(function(sale){
-    const itemName = (sale.items&&sale.items.length) ? sale.items.map(function(i){return getItemName(i.itemId);}).filter(Boolean).join(', ') : (sale.notes||'-');
+    const itemName = (sale.items&&sale.items.length) ? sale.items.map(function(i){const n=getItemName(i.itemId); return n?(i.qty>1?n+' × '+i.qty:n):null;}).filter(Boolean).join(', ') : (sale.notes||'-');
     const paidBadge = sale.isPaid===true ? '<span style="color:var(--success);font-weight:700;">Y</span>' : sale.isPaid===false ? '<span style="color:var(--danger);">N</span>' : '-';
     const shipped = sale.isShipped===true;
     // 발송자 드롭다운 (비컬러) or 체크버튼 (컬러)
@@ -1860,21 +1881,21 @@ function buildSalesTable(sales, withEdit) {
       const memoStyle = 'text-align:center;font-size:11px;color:var(--text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+(noteText?'cursor:pointer;text-decoration:underline dotted;':'');
       const memoClick = noteText ? 'onclick="showMemo(this,\''+noteSafe+'\')" title="'+noteSafe+'"' : '';
       memoCell = '<td style="'+memoStyle+'" '+memoClick+'>'+(noteText||'-')+'</td>'
-               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);">'+(sale.reservationNo||'-')+'</td>'
-               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);">'+(sale.courier||'-')+'</td>'
-               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);">'+(sale.trackingNo||'-')+'</td>';
+               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.reservationNo||'-')+'</td>'
+               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.courier||'-')+'</td>'
+               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.trackingNo||'-')+'</td>';
     }
     const editCell = withEdit
       ? '<td style="text-align:center;white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="editSale(\''+sale.id+'\')" style="margin-right:4px;">수정</button><button class="btn btn-outline btn-sm" onclick="deleteSaleRow(\''+sale.id+'\')" style="background:#333;color:white;border-color:#333;">삭제</button></td>'
       : '';
     html += '<tr style="'+(shipped?'opacity:0.55;':'')+'">'
       + '<td style="text-align:center;"><span class="badge-person '+getBadgeClass(sale.seller)+'">'+sale.seller+'</span></td>'
-      + '<td style="text-align:center;font-size:12px;">'+(sale.platform||'-')+'</td>'
-      + '<td style="text-align:center;font-size:12px;">'+itemName+'</td>'
-      + '<td style="text-align:center;font-weight:700;">'+fmt(sale.total)+'</td>'
+      + '<td style="text-align:center;font-size:12px;white-space:nowrap;">'+(sale.platform||'-')+'</td>'
+      + '<td style="text-align:center;font-size:12px;max-width:140px;">'+itemName+'</td>'
+      + '<td style="text-align:center;font-weight:700;white-space:nowrap;">'+fmt(sale.total)+'</td>'
       + '<td style="text-align:center;font-size:12px;white-space:nowrap;">'+(sale.shippingMethod||'-')+'</td>'
-      + '<td style="text-align:center;">'+paidBadge+'</td>'
-      + '<td style="text-align:center;">'+shipBtn+'</td>'
+      + '<td style="text-align:center;white-space:nowrap;">'+paidBadge+'</td>'
+      + '<td style="text-align:center;white-space:nowrap;">'+shipBtn+'</td>'
       + memoCell + editCell
       + '</tr>';
   });
@@ -1884,7 +1905,7 @@ function buildSalesTable(sales, withEdit) {
   let cards = '<div class="sales-card-view">';
   sales.forEach(function(sale) {
     const shipped = sale.isShipped === true;
-    const itemName2 = (sale.items&&sale.items.length) ? sale.items.map(function(i){return getItemName(i.itemId);}).filter(Boolean).join(', ') : (sale.notes||'-');
+    const itemName2 = (sale.items&&sale.items.length) ? sale.items.map(function(i){const n=getItemName(i.itemId); return n?(i.qty>1?n+' × '+i.qty:n):null;}).filter(Boolean).join(', ') : (sale.notes||'-');
     const paidText = sale.isPaid===true ? '<span style="color:var(--success);font-weight:700;">입금 Y</span>' : sale.isPaid===false ? '<span style="color:var(--danger);">입금 N</span>' : '';
     let shipBtnCard;
     if (isColor) {
@@ -1945,7 +1966,7 @@ function toggleShipped(id) {
 }
 function buildShipperBtns(saleId, shippedBy, sellers) {
   const emptyClass = !shippedBy ? ' sel-empty' : '';
-  let html = '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">';
+  let html = '<div style="display:flex;gap:4px;flex-wrap:nowrap;align-items:center;white-space:nowrap;">';
   html += '<button class="shipper-btn'+emptyClass+'" onclick="updateShippedBy(\''+saleId+'\',\'\')">미발송</button>';
   sellers.forEach(function(s, i) {
     const selClass = shippedBy===s ? ' sel-s'+i : '';
@@ -2007,6 +2028,7 @@ function submitInlineSale() {
   const seller = document.getElementById('iSeller').value;
   const platform = document.getElementById('iPlatform').value;
   const itemId = document.getElementById('iItem').value;
+  const qty = Math.max(1, parseInt(document.getElementById('iQty').value) || 1);
   const totalRaw = document.getElementById('iTotal').value;
   const total = totalRaw === '' ? null : parseInt(totalRaw);
   if (total === null) { alert('금액을 입력하세요.'); return; }
@@ -2020,7 +2042,8 @@ function submitInlineSale() {
   const courier = document.getElementById('iCourier').value;
   if (!seller) { alert('판매자를 선택하세요.'); return; }
   if (!platform) { alert('플랫폼을 선택하세요.'); return; }
-  const items = itemId ? [{itemId, qty:1, unitPrice:total}] : [];
+  const unitPrice = qty > 1 ? Math.round(total / qty) : total;
+  const items = itemId ? [{itemId, qty, unitPrice}] : [];
   const sale = {
     id: uuid(), date: today(), createdAt: new Date().toISOString(),
     seller, platform, receiver: seller,
@@ -2032,6 +2055,7 @@ function submitInlineSale() {
   const sales = DB.sales; sales.unshift(sale); DB.sales = sales;
   // 입력폼 초기화 (판매자/플랫폼 유지)
   document.getElementById('iItem').value = '';
+  document.getElementById('iQty').value = '1';
   document.getElementById('iTotal').value = '';
   document.getElementById('iShipMethod').value = '';
   document.getElementById('iIsPaid').value = '';
@@ -2144,6 +2168,7 @@ function editSale(id) {
   items.forEach(v=>eItem.innerHTML+=`<option value="${v.id}">${v.name}</option>`);
   const curItemId=(sale.items&&sale.items.length)?sale.items[0].itemId:'';
   eItem.value=curItemId;
+  document.getElementById('eQty').value=(sale.items&&sale.items.length)?sale.items[0].qty||1:1;
   document.getElementById('eTotal').value=sale.total||'';
   const eShipMethod=document.getElementById('eShipMethod');
   eShipMethod.innerHTML='<option value="">선택</option>';
@@ -2166,18 +2191,18 @@ function saveSaleEdit(id) {
   const sales=DB.sales; const idx=sales.findIndex(s=>s.id===id); if(idx<0) return;
   const sale=sales[idx];
   const itemId=document.getElementById('eItem').value;
+  const newQty=Math.max(1,parseInt(document.getElementById('eQty').value)||1);
   const newTotal=parseInt(document.getElementById('eTotal').value)||0;
+  const newUnitPrice=newQty>1?Math.round(newTotal/newQty):newTotal;
   // 상품이 바뀌었으면 unitPrice도 업데이트
   if(itemId) {
-    const item=DB.items.find(i=>i.id===itemId);
     const prevItemId=sale.items&&sale.items.length?sale.items[0].itemId:'';
     if(itemId!==prevItemId) {
-      // 상품이 변경된 경우 — 현재 시점 단가로 스냅샷
-      sale.items=[{itemId, qty:1, unitPrice:item?(item.price||newTotal):newTotal}];
+      sale.items=[{itemId, qty:newQty, unitPrice:newUnitPrice}];
     } else if(sale.items&&sale.items.length) {
       sale.items[0].itemId=itemId;
-      // 금액이 변경됐으면 unitPrice도 동기화
-      if(newTotal!==sale.total) sale.items[0].unitPrice=newTotal;
+      sale.items[0].qty=newQty;
+      sale.items[0].unitPrice=newUnitPrice;
     }
   } else {
     sale.items=[];
@@ -2234,13 +2259,14 @@ function renderInventory() {
     stockByHolder[e.itemId][e.holder] = (stockByHolder[e.itemId][e.holder]||0) + e.qty;
   });
 
-  // 판매 수량 집계 — shippedBy 기준으로 보유자별 차감
+  // 판매 수량 집계 — 등록 시점의 seller 기준으로 보유자별 차감
   const soldByHolder = {};  // { itemId: { holder: qty } }
   sales.forEach(sale => {
-    if (!sale.shippedBy) return; // 미발송은 아직 차감 안 함
+    const holder = sale.seller;
+    if (!holder) return; // 판매자 없는 건 제외
     (sale.items||[]).forEach(si => {
       if (!soldByHolder[si.itemId]) soldByHolder[si.itemId] = {};
-      soldByHolder[si.itemId][sale.shippedBy] = (soldByHolder[si.itemId][sale.shippedBy]||0) + si.qty;
+      soldByHolder[si.itemId][holder] = (soldByHolder[si.itemId][holder]||0) + si.qty;
     });
   });
 
