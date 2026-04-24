@@ -369,6 +369,18 @@
     #shippingTotals > div { flex-direction: column; gap: 8px; }
     #shippingTotals > div > div { width: 100%; box-sizing: border-box; }
 
+    /* 전체 overflow 방지 */
+    input, select, textarea, button { max-width: 100%; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; }
+    .item-qty-input, .item-price-input { width: 100% !important; }
+    .card { overflow: hidden; }
+    /* 그리드 아이템 overflow 방지 */
+    .sale-form-grid-4 > *, .sale-form-grid-5 > *, .sale-form-grid-2 > *,
+    .sale-form-grid-last > *, .settings-form-1a > *, .settings-form-2a > *,
+    .purchase-form-grid > * { min-width: 0; overflow: hidden; }
+    /* 발송자 버튼 wrap 허용 (모바일 카드) */
+    .sale-card .shipper-btn { font-size: 10px; padding: 2px 5px; }
+
     /* Filter bar */
     .filter-bar { gap: 6px; }
     .filter-bar .form-group { min-width: calc(50% - 6px); flex: 1 1 calc(50% - 6px); }
@@ -1880,8 +1892,12 @@ function buildSalesTable(sales, withEdit) {
       const noteSafe = noteText.replace(/'/g,"\\'").replace(/"/g,'&quot;');
       const memoStyle = 'text-align:center;font-size:11px;color:var(--text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+(noteText?'cursor:pointer;text-decoration:underline dotted;':'');
       const memoClick = noteText ? 'onclick="showMemo(this,\''+noteSafe+'\')" title="'+noteSafe+'"' : '';
+      const resNo = sale.reservationNo||'';
+      const resNoSafe = resNo.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+      const resNoStyle = 'text-align:center;font-size:11px;color:var(--text-secondary);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+(resNo?'cursor:pointer;text-decoration:underline dotted;':'');
+      const resNoClick = resNo ? 'onclick="showMemo(this,\''+resNoSafe+'\')" title="'+resNoSafe+'"' : '';
       memoCell = '<td style="'+memoStyle+'" '+memoClick+'>'+(noteText||'-')+'</td>'
-               + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.reservationNo||'-')+'</td>'
+               + '<td style="'+resNoStyle+'" '+resNoClick+'>'+(resNo||'-')+'</td>'
                + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.courier||'-')+'</td>'
                + '<td style="text-align:center;font-size:12px;color:var(--text-secondary);white-space:nowrap;">'+(sale.trackingNo||'-')+'</td>';
     }
@@ -1924,7 +1940,10 @@ function buildSalesTable(sales, withEdit) {
       if (noteText) {
         extraRows += '<div class="sale-card-row"><span class="sale-card-label">메모</span><span class="sale-card-memo" onclick="showMemo(this,\''+noteSafe+'\')">'+noteText+'</span></div>';
       }
-      if (sale.reservationNo) extraRows += '<div class="sale-card-row"><span class="sale-card-label">예약번호</span><span>'+sale.reservationNo+'</span></div>';
+      if (sale.reservationNo) {
+        const rSafe = sale.reservationNo.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+        extraRows += '<div class="sale-card-row"><span class="sale-card-label">예약번호</span><span class="sale-card-memo" onclick="showMemo(this,\''+rSafe+'\')">'+sale.reservationNo+'</span></div>';
+      }
       if (sale.courier || sale.trackingNo) {
         extraRows += '<div class="sale-card-row"><span class="sale-card-label">택배</span><span>'+(sale.courier||'')+(sale.courier&&sale.trackingNo?' · ':'')+( sale.trackingNo||'')+'</span></div>';
       }
