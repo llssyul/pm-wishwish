@@ -494,7 +494,9 @@
         <div class="filter-bar">
           <div class="form-group"><label>판매자</label><select id="filterSeller" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>플랫폼</label><select id="filterPlatform" onchange="renderSalesList()"><option value="">전체</option></select></div>
+          <div class="form-group"><label>배송방법</label><select id="filterShipMethod" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>배송완료</label><select id="filterShipped" onchange="renderSalesList()"><option value="">전체</option><option value="y">완료</option><option value="n">미완료</option></select></div>
+          <div class="form-group"><label>검색</label><input type="text" id="filterSearch" placeholder="메모 · 예약번호 검색" oninput="renderSalesList()" style="width:100%;"></div>
           <div class="form-group" style="justify-content:flex-end;"><label style="visibility:hidden;">초기화</label><button class="btn btn-outline" onclick="clearFilters()" style="padding:9px 16px;font-size:13px;">초기화</button></div>
         </div>
         <div class="table-wrapper" id="salesListTable"></div>
@@ -1834,6 +1836,8 @@ function renderSalesList() {
   if(iItem){const cur=iItem.value;iItem.innerHTML='<option value="">선택</option>';items.forEach(v=>iItem.innerHTML+=`<option value="${v.id}" ${v.id===cur?'selected':''}>${v.name}</option>`);}
   const iShipMethod=document.getElementById('iShipMethod');
   if(iShipMethod){const cur=iShipMethod.value;iShipMethod.innerHTML='<option value="">선택</option>';(s.shippingMethods||[]).forEach(v=>iShipMethod.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
+  const iCourier=document.getElementById('iCourier');
+  if(iCourier){const cur=iCourier.value;iCourier.innerHTML='<option value="">선택</option>';(s.couriers||[]).forEach(v=>iCourier.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
   const iStatus=document.getElementById('iStatus');
   if(iStatus){const cur=iStatus.value;iStatus.innerHTML='<option value="">선택</option>';(s.statuses||[]).forEach(v=>iStatus.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
   // 필터 드롭다운 채우기
@@ -1844,14 +1848,24 @@ function renderSalesList() {
   s.sellers.forEach(v=>fSeller.innerHTML+=`<option value="${v}" ${v===curS?'selected':''}>${v}</option>`);
   const curP=fPlatform.value; fPlatform.innerHTML='<option value="">전체</option>';
   s.platforms.forEach(v=>fPlatform.innerHTML+=`<option value="${v}" ${v===curP?'selected':''}>${v}</option>`);
+  const fShipMethod=document.getElementById('filterShipMethod');
+  if(fShipMethod){const curSM=fShipMethod.value;fShipMethod.innerHTML='<option value="">전체</option>';(s.shippingMethods||[]).forEach(v=>fShipMethod.innerHTML+=`<option value="${v}" ${v===curSM?'selected':''}>${v}</option>`);}
   // 필터 적용
   let sales = DB.sales;
   const sf=fSeller.value, pf=fPlatform.value;
+  const smf=document.getElementById('filterShipMethod')?.value||'';
   const shippedF=document.getElementById('filterShipped')?.value||'';
+  const searchQ=(document.getElementById('filterSearch')?.value||'').trim().toLowerCase();
   if(sf) sales=sales.filter(s=>s.seller===sf);
   if(pf) sales=sales.filter(s=>s.platform===pf);
+  if(smf) sales=sales.filter(s=>s.shippingMethod===smf);
   if(shippedF==='y') sales=sales.filter(s=>!!s.isShipped);
   if(shippedF==='n') sales=sales.filter(s=>!s.isShipped);
+  if(searchQ) sales=sales.filter(s=>
+    (s.notes||'').toLowerCase().includes(searchQ) ||
+    (s.reservationNo||'').toLowerCase().includes(searchQ) ||
+    (s.buyerName||'').toLowerCase().includes(searchQ)
+  );
   sales=[...sales].sort((a,b)=>(b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||''));
   const total=sales.reduce((a,b)=>a+(b.total||0),0);
   document.getElementById('salesListSummary').innerHTML=`총 ${sales.length}건 | 합계: <b>${fmt(total)}</b>`;
@@ -2032,7 +2046,8 @@ function setStatusFilter(val) {
   renderSalesList();
 }
 function clearFilters() {
-  ['filterSeller','filterPlatform','filterShipped'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['filterSeller','filterPlatform','filterShipMethod','filterShipped'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const fs=document.getElementById('filterSearch');if(fs)fs.value='';
   renderSalesList();
 }
 function onItemSelect() {}
@@ -2193,6 +2208,10 @@ function editSale(id) {
   eShipMethod.innerHTML='<option value="">선택</option>';
   (s.shippingMethods||[]).forEach(v=>eShipMethod.innerHTML+=`<option value="${v}">${v}</option>`);
   eShipMethod.value=sale.shippingMethod||'';
+  const eCourier=document.getElementById('eCourier');
+  eCourier.innerHTML='<option value="">선택</option>';
+  (s.couriers||[]).forEach(v=>eCourier.innerHTML+=`<option value="${v}">${v}</option>`);
+  eCourier.value=sale.courier||'';
   document.getElementById('eIsPaid').value=sale.isPaid===true?'true':sale.isPaid===false?'false':'';
   const eStatus=document.getElementById('eStatus');
   eStatus.innerHTML='<option value="">선택</option>';
@@ -2202,7 +2221,6 @@ function editSale(id) {
   document.getElementById('eNotes').value=sale.notes||'';
   document.getElementById('eReservationNo').value=sale.reservationNo||'';
   document.getElementById('eTrackingNo').value=sale.trackingNo||'';
-  document.getElementById('eCourier').value=sale.courier||'';
   document.getElementById('saleEditSaveBtn').onclick=()=>saveSaleEdit(id);
   openModal('saleEditModal');
 }
