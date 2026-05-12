@@ -494,6 +494,7 @@
         <div class="filter-bar">
           <div class="form-group"><label>판매자</label><select id="filterSeller" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>플랫폼</label><select id="filterPlatform" onchange="renderSalesList()"><option value="">전체</option></select></div>
+          <div class="form-group"><label>상품</label><select id="filterItem" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>배송방법</label><select id="filterShipMethod" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>배송완료</label><select id="filterShipped" onchange="renderSalesList()"><option value="">전체</option><option value="y">완료</option><option value="n">미완료</option></select></div>
           <div class="form-group"><label>검색</label><input type="text" id="filterSearch" placeholder="메모 · 예약번호 검색" oninput="renderSalesList()" style="width:100%;"></div>
@@ -1848,16 +1849,20 @@ function renderSalesList() {
   s.sellers.forEach(v=>fSeller.innerHTML+=`<option value="${v}" ${v===curS?'selected':''}>${v}</option>`);
   const curP=fPlatform.value; fPlatform.innerHTML='<option value="">전체</option>';
   s.platforms.forEach(v=>fPlatform.innerHTML+=`<option value="${v}" ${v===curP?'selected':''}>${v}</option>`);
+  const fItem=document.getElementById('filterItem');
+  if(fItem){const curI=fItem.value;fItem.innerHTML='<option value="">전체</option>';DB.items.forEach(v=>fItem.innerHTML+=`<option value="${v.id}" ${v.id===curI?'selected':''}>${v.name}</option>`);}
   const fShipMethod=document.getElementById('filterShipMethod');
   if(fShipMethod){const curSM=fShipMethod.value;fShipMethod.innerHTML='<option value="">전체</option>';(s.shippingMethods||[]).forEach(v=>fShipMethod.innerHTML+=`<option value="${v}" ${v===curSM?'selected':''}>${v}</option>`);}
   // 필터 적용
   let sales = DB.sales;
   const sf=fSeller.value, pf=fPlatform.value;
+  const itemF=document.getElementById('filterItem')?.value||'';
   const smf=document.getElementById('filterShipMethod')?.value||'';
   const shippedF=document.getElementById('filterShipped')?.value||'';
   const searchQ=(document.getElementById('filterSearch')?.value||'').trim().toLowerCase();
   if(sf) sales=sales.filter(s=>s.seller===sf);
   if(pf) sales=sales.filter(s=>s.platform===pf);
+  if(itemF) sales=sales.filter(s=>(s.items||[]).some(i=>i.itemId===itemF));
   if(smf) sales=sales.filter(s=>s.shippingMethod===smf);
   if(shippedF==='y') sales=sales.filter(s=>!!s.isShipped);
   if(shippedF==='n') sales=sales.filter(s=>!s.isShipped);
@@ -2046,7 +2051,7 @@ function setStatusFilter(val) {
   renderSalesList();
 }
 function clearFilters() {
-  ['filterSeller','filterPlatform','filterShipMethod','filterShipped'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['filterSeller','filterPlatform','filterItem','filterShipMethod','filterShipped'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const fs=document.getElementById('filterSearch');if(fs)fs.value='';
   renderSalesList();
 }
