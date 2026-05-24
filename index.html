@@ -859,8 +859,11 @@ function renderProjectScreen() {
   grid.innerHTML = '';
 
   projects.forEach(p => {
-    // Get quick stats
-    const sales = JSON.parse(localStorage.getItem(`pm_${p.id}_sales`) || '[]');
+    // Get quick stats — DB 레이어를 통해 읽어야 Firebase 동기화 데이터가 반영됨
+    const savedPid = DB.currentProjectId;
+    DB.currentProjectId = p.id;
+    const sales = DB.sales;
+    DB.currentProjectId = savedPid;
     const completed = sales.filter(s => s.status === '배송완료' || s.status === '배송불가');
     const totalRev = completed.reduce((a, b) => a + (b.total || 0), 0);
 
@@ -1664,7 +1667,8 @@ function openProject(pid) {
   if (!project) return;
 
   // Initialize default data if first time
-  if (DB.items.length === 0) {
+  // _fbReady 확인: Firebase 로딩 완료 후에만 초기화 (새 PC에서 Firebase 데이터 로딩 전에 빈 값으로 덮어쓰는 문제 방지)
+  if (_fbReady && DB.items.length === 0) {
     DB.items = [
       { id: uuid(), name: '단체', category: '앨범', initialQty: 0 },
       { id: uuid(), name: '시온', category: '앨범', initialQty: 0 },
@@ -1871,9 +1875,16 @@ function renderSalesList() {
     (s.reservationNo||'').toLowerCase().includes(searchQ) ||
     (s.buyerName||'').toLowerCase().includes(searchQ)
   );
-  sales=[...sales].sort((a,b)=>(b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||''));
+  // 발송 체크된 항목은 아래로, 미발송은 위로 (각 그룹 내에서는 최신순)
+  sales=[...sales].sort((a,b)=>{
+    const aShipped = a.isShipped ? 1 : 0;
+    const bShipped = b.isShipped ? 1 : 0;
+    if (aShipped !== bShipped) return aShipped - bShipped;
+    return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');
+  });
   const total=sales.reduce((a,b)=>a+(b.total||0),0);
-  document.getElementById('salesListSummary').innerHTML=`총 ${sales.length}건 | 합계: <b>${fmt(total)}</b>`;
+  const totalQty = sales.reduce((a,b) => a + (b.items||[]).reduce((c,d) => c + (d.qty||0), 0), 0);
+  document.getElementById('salesListSummary').innerHTML=`총 ${sales.length}건 (${totalQty.toLocaleString()}개) | 합계: <b>${fmt(total)}</b>`;
   document.getElementById('salesListTable').innerHTML = sales.length ? buildSalesTable(sales,true) : '<div class="empty-state"><div class="icon">🔍</div>조건에 맞는 판매 내역이 없습니다</div>';
 }
 function buildSalesTable(sales, withEdit) {
@@ -2856,15 +2867,46 @@ async function initApp() {
   try {
     const snap = await fbDB.ref('store').once('value');
     const data = snap.val() || {};
+    const mergePromises = [];
     Object.entries(data).forEach(([key, val]) => {
       try {
         const str = typeof val === 'string' ? val : JSON.stringify(val);
-        DB._mem[key] = JSON.parse(str);
+        const fbData = JSON.parse(str);
+        // 판매 데이터는 머지: 로컬에만 있는 항목을 Firebase에 올림
+        if (key.endsWith('_sales') && Array.isArray(fbData)) {
+          const localStr = localStorage.getItem(key);
+          const localData = localStr ? JSON.parse(localStr) : [];
+          if (Array.isArray(localData) && localData.length > fbData.length) {
+            const fbIds = new Set(fbData.map(x => x.id));
+            const onlyLocal = localData.filter(x => !fbIds.has(x.id));
+            if (onlyLocal.length > 0) {
+              const merged = [...fbData, ...onlyLocal];
+              const mergedStr = JSON.stringify(merged);
+              DB._mem[key] = merged;
+              localStorage.setItem(key, mergedStr);
+              mergePromises.push(fbDB.ref('store/' + key).set(mergedStr));
+              return;
+            }
+          }
+        }
+        DB._mem[key] = fbData;
         localStorage.setItem(key, str);
       } catch(e) {}
     });
+    if (mergePromises.length > 0) await Promise.all(mergePromises);
     _fbReady = true;
     setSyncStatus('connected');
+
+    // pm_projects가 Firebase에 없으면 localStorage에서 가져와 Firebase에 올림
+    // (PC마다 프로젝트 목록이 다른 문제의 근본 원인 해결)
+    if (!data['pm_projects']) {
+      const localProjects = localStorage.getItem('pm_projects');
+      if (localProjects) {
+        fbDB.ref('store/pm_projects').set(localProjects)
+          .then(() => console.log('pm_projects Firebase 동기화 완료'))
+          .catch(e => console.error('pm_projects Firebase 동기화 실패:', e));
+      }
+    }
 
     // 실시간 리스너 — 상대방 변경사항 반영
     fbDB.ref('store').on('value', snap => {
