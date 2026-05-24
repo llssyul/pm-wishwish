@@ -2867,13 +2867,33 @@ async function initApp() {
   try {
     const snap = await fbDB.ref('store').once('value');
     const data = snap.val() || {};
+    const mergePromises = [];
     Object.entries(data).forEach(([key, val]) => {
       try {
         const str = typeof val === 'string' ? val : JSON.stringify(val);
-        DB._mem[key] = JSON.parse(str);
+        const fbData = JSON.parse(str);
+        // 판매 데이터는 머지: 로컬에만 있는 항목을 Firebase에 올림
+        if (key.endsWith('_sales') && Array.isArray(fbData)) {
+          const localStr = localStorage.getItem(key);
+          const localData = localStr ? JSON.parse(localStr) : [];
+          if (Array.isArray(localData) && localData.length > fbData.length) {
+            const fbIds = new Set(fbData.map(x => x.id));
+            const onlyLocal = localData.filter(x => !fbIds.has(x.id));
+            if (onlyLocal.length > 0) {
+              const merged = [...fbData, ...onlyLocal];
+              const mergedStr = JSON.stringify(merged);
+              DB._mem[key] = merged;
+              localStorage.setItem(key, mergedStr);
+              mergePromises.push(fbDB.ref('store/' + key).set(mergedStr));
+              return;
+            }
+          }
+        }
+        DB._mem[key] = fbData;
         localStorage.setItem(key, str);
       } catch(e) {}
     });
+    if (mergePromises.length > 0) await Promise.all(mergePromises);
     _fbReady = true;
     setSyncStatus('connected');
 
