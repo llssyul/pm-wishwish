@@ -432,6 +432,55 @@
   <div class="project-grid" id="projectGrid"></div>
 </div>
 
+<!-- ===== 잡화 화면 ===== -->
+<div id="miscScreen" style="display:none; min-height:100vh; background:#f5f5f5;">
+  <div class="header" style="background:#5d4037;">
+    <button class="btn-switch-project" onclick="goToProjectScreen()" style="margin-right:8px;">← 뒤로</button>
+    <div style="font-size:18px; font-weight:900; color:white; letter-spacing:-0.3px;">🛒 잡화 판매</div>
+    <div class="header-spacer"></div>
+    <span id="miscSyncStatus" style="font-size:11px;opacity:0.8;color:white;white-space:nowrap;">● 동기화됨</span>
+  </div>
+  <div class="main">
+    <div id="miscStatsGrid" class="stats-grid"></div>
+
+    <!-- 포카마켓 지갑 -->
+    <div class="card" style="background:#fff8e1; border:1.5px solid #ffcc02;">
+      <div class="card-title" style="margin-bottom:12px;">👛 포카마켓 지갑</div>
+      <div id="miscWalletGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;"></div>
+    </div>
+    <div class="card" style="background:#f8f9ff; border:1.5px solid var(--primary-light);">
+      <div class="card-title">➕ 판매 입력</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr 2fr 1fr; gap:10px; align-items:end;">
+        <div class="form-group" style="margin:0;"><label>날짜</label><input type="date" id="miscDate" style="width:100%;"></div>
+        <div class="form-group" style="margin:0;"><label>판매자</label><select id="miscSeller" style="width:100%;"></select></div>
+        <div class="form-group" style="margin:0;"><label>품목</label><input type="text" id="miscItem" placeholder="예: 포카, 키링" style="width:100%;"></div>
+        <div class="form-group" style="margin:0;"><label>금액 (₩)</label><input type="text" id="miscAmount" placeholder="0 또는 -1000" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9\-]/g,'').replace(/(?!^)-/g,'').replace(/^(-?)(\d+)$/,(_,s,n)=>s+(+n).toLocaleString())" style="width:100%;"></div>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end; margin-top:10px;">
+        <div class="form-group" style="margin:0;"><label>메모 (선택)</label><input type="text" id="miscMemo" placeholder="특이사항" style="width:100%;"></div>
+        <button class="btn btn-primary" style="height:40px; white-space:nowrap;" onclick="addMiscSale()">등록</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 누적 중</div>
+      <div id="miscUnsettledList"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
+        <div style="display:flex; align-items:center; gap:10px; cursor:pointer; flex-wrap:wrap;" onclick="var b=document.getElementById('miscSettledBody'); b.style.display=b.style.display==='none'?'block':'none'">
+          <div class="card-title" style="margin:0; color:#999;">🗂 송금 완료 내역</div>
+          <div style="display:flex; align-items:center; gap:6px; background:#f5f5f5; border-radius:6px; padding:3px 10px; font-size:12px; color:#666;" onclick="event.stopPropagation()">
+            <span>우리은행 1002367480284</span>
+            <button onclick="navigator.clipboard.writeText('1002367480284').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='복사',1500)})" style="background:#5d4037;color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">복사</button>
+          </div>
+        </div>
+        <span style="color:#aaa; font-size:12px; cursor:pointer;" onclick="var b=document.getElementById('miscSettledBody'); b.style.display=b.style.display==='none'?'block':'none'">펼치기/접기</span>
+      </div>
+      <div id="miscSettledBody" style="display:none;"><div id="miscSettledList"></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MAIN APP ===== -->
 <div id="appScreen">
   <div class="header">
@@ -617,6 +666,8 @@
         </div>
       </div>
     </div>
+
+
   </div>
 </div>
 
@@ -780,6 +831,12 @@ const DB = {
   get projects() { return this._get('pm_projects') || []; },
   set projects(v) { this._set('pm_projects', v); },
 
+  // 잡화 판매 — 프로젝트 독립 키
+  get miscSales() { return this._get('misc_sales') || []; },
+  set miscSales(v) { this._set('misc_sales', v); },
+  get miscWallet() { return this._get('misc_wallet') || {}; },
+  set miscWallet(v) { this._set('misc_wallet', v); },
+
   get items() { return this._get(this._key('items')) || []; },
   set items(v) { this._set(this._key('items'), v); },
 
@@ -886,6 +943,28 @@ function renderProjectScreen() {
     card.onclick = () => openProject(p.id);
     grid.appendChild(card);
   });
+
+  // 잡화 카드
+  const miscSales = DB.miscSales;
+  const miscUnsettled = miscSales.filter(s => !s.settled);
+  const miscListTotal = miscSales.reduce((a, b) => a + (b.amount || 0), 0);
+  const miscWallet = DB.miscWallet;
+  const miscWalletTotal = Object.values(miscWallet).reduce((a, w) => a + (w.amount || 0), 0);
+  const miscTotal = miscListTotal + miscWalletTotal;
+  const miscCard = document.createElement('div');
+  miscCard.className = 'project-card';
+  miscCard.style.background = 'rgba(93,64,55,0.75)';
+  miscCard.style.border = '1.5px solid rgba(93,64,55,0.9)';
+  miscCard.innerHTML = `
+    <div class="project-name" style="font-size:19px;font-weight:900;margin-bottom:4px;">🛒 잡화</div>
+    <div class="project-meta">앨범 외 자잘한 판매</div>
+    <div class="project-stats">
+      <div class="project-stat"><b>${miscUnsettled.length}</b>누적 중</div>
+      <div class="project-stat"><b>${fmt(miscTotal)}</b>누적 금액</div>
+    </div>
+  `;
+  miscCard.onclick = () => openMiscScreen();
+  grid.appendChild(miscCard);
 
   // Add new project card
   const addCard = document.createElement('div');
@@ -1698,9 +1777,16 @@ function openProject(pid) {
 function goToProjectScreen() {
   DB.currentProjectId = null;
   document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('miscScreen').style.display = 'none';
   document.getElementById('projectScreen').style.display = 'flex';
   renderProjectScreen();
-  // restoreBanner removed
+}
+
+function openMiscScreen() {
+  document.getElementById('projectScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('miscScreen').style.display = 'block';
+  renderMiscTab();
 }
 
 // ===================== TABS =====================
@@ -2913,6 +2999,7 @@ async function initApp() {
       if (_suppressListener) return;
       const data = snap.val() || {};
       let changed = false;
+      // Firebase에 있는 키 업데이트
       Object.entries(data).forEach(([key, val]) => {
         try {
           const newStr = typeof val === 'string' ? val : JSON.stringify(val);
@@ -2924,7 +3011,21 @@ async function initApp() {
           }
         } catch(e) {}
       });
-      if (changed) scheduleRefresh();
+      // Firebase에서 삭제된 misc 키는 localStorage에서도 제거
+      ['misc_sales', 'misc_wallet'].forEach(key => {
+        if (!(key in data) && localStorage.getItem(key) !== null) {
+          delete DB._mem[key];
+          localStorage.removeItem(key);
+          changed = true;
+        }
+      });
+      if (changed) {
+        if (document.getElementById('miscScreen').style.display !== 'none') {
+          renderMiscTab();
+        } else {
+          scheduleRefresh();
+        }
+      }
     });
 
   } catch(e) {
@@ -2998,6 +3099,219 @@ async function initApp() {
     renderProjectScreen();
     // restoreBanner removed
   }
+}
+
+
+// ===================== 잡화 탭 (프로젝트 독립) =====================
+function miscTimeAgo(isoStr) {
+  if (!isoStr) return '기록 없음';
+  const diff = (Date.now() - new Date(isoStr).getTime()) / 1000;
+  if (diff < 60) return '방금 전';
+  if (diff < 3600) return Math.floor(diff / 60) + '분 전';
+  if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
+  return Math.floor(diff / 86400) + '일 전';
+}
+
+function renderMiscWallet(sellers) {
+  const wallet = DB.miscWallet;
+  const el = document.getElementById('miscWalletGrid');
+  if (!el) return;
+  el.innerHTML = sellers.map(seller => {
+    const w = wallet[seller] || {};
+    const amt = w.amount != null ? w.amount : '';
+    const updatedAt = w.updatedAt || null;
+    const timeStr = updatedAt ? miscTimeAgo(updatedAt) : '업데이트 없음';
+    const fullTime = updatedAt ? new Date(updatedAt).toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+    return `
+      <div style="background:white; border-radius:10px; padding:14px; border:1px solid #ffe082;">
+        <div style="font-weight:700; font-size:15px; margin-bottom:2px;">${seller}</div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:8px;">${seller==='지수'?'컬러잔여+오드투러브 미공포':seller==='혜민'?'컬러잔여+컬러중국':''}</div>
+        <div style="font-size:22px; font-weight:900; color:#e65100; margin-bottom:4px;">${amt !== '' ? fmt(amt) : '—'}</div>
+        <div style="font-size:11px; color:#aaa; margin-bottom:10px;" title="${fullTime}">⏱ ${timeStr}${fullTime ? ' · ' + fullTime : ''}</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="text" id="miscWalletInput_${seller}" placeholder="금액 입력" value=""
+            inputmode="numeric"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/\\B(?=(\\d{3})+(?!\\d))/g,',')"
+            style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:6px; font-size:13px;">
+          <button class="btn btn-sm" style="background:#ff8f00; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; white-space:nowrap;"
+            onclick="updateMiscWallet('${seller}')">저장</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function updateMiscWallet(seller) {
+  const input = document.getElementById('miscWalletInput_' + seller);
+  const raw = (input.value || '').replace(/,/g, '');
+  if (!raw) { alert('금액을 입력해주세요'); return; }
+  const amount = parseInt(raw);
+  const wallet = DB.miscWallet;
+  wallet[seller] = { amount, updatedAt: new Date().toISOString() };
+  DB.miscWallet = wallet;
+  input.value = '';
+  renderMiscTab();
+}
+
+function renderMiscTab() {
+  const sales = DB.miscSales;
+  const sellers = (DB.settings && DB.settings.sellers) ? DB.settings.sellers : ['지수', '혜민'];
+
+  // 포카마켓 지갑
+  renderMiscWallet(sellers);
+
+  // 날짜 기본값 세팅
+  const miscDateEl = document.getElementById('miscDate');
+  if (miscDateEl && !miscDateEl.value) miscDateEl.value = new Date().toISOString().slice(0, 10);
+
+  // 판매자 select 채우기
+  const sellerEl = document.getElementById('miscSeller');
+  if (sellerEl) {
+    const cur = sellerEl.value;
+    sellerEl.innerHTML = '<option value="">선택</option>' + sellers.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (cur) sellerEl.value = cur;
+  }
+
+  // 미정산 / 정산완료 분리
+  const unsettled = sales.filter(s => !s.settled);
+  const settled   = sales.filter(s => s.settled);
+
+  // 판매자별 누적 금액 = 포카마켓 지갑 + 전체 리스트(누적중 + 송금완료) 합산
+  const wallet = DB.miscWallet;
+  const totals = {};
+  sellers.forEach(s => totals[s] = 0);
+  sales.forEach(s => { if (totals[s.seller] !== undefined) totals[s.seller] += (s.amount || 0); });
+  sellers.forEach(s => { totals[s] += (wallet[s] && wallet[s].amount ? wallet[s].amount : 0); });
+
+  // 통계 카드
+  const statsEl = document.getElementById('miscStatsGrid');
+  if (statsEl) {
+    statsEl.innerHTML = sellers.map(s => `
+      <div class="stat-card" style="position:relative;">
+        <div class="stat-label">💰 ${s} 누적</div>
+        <div class="stat-value">${fmt(totals[s] || 0)}</div>
+      </div>`).join('');
+  }
+
+  // 미정산 내역 테이블
+  const unsettledEl = document.getElementById('miscUnsettledList');
+  if (unsettledEl) {
+    if (unsettled.length === 0) {
+      unsettledEl.innerHTML = '<p style="color:#aaa; text-align:center; padding:20px;">누적 내역이 없어요</p>';
+    } else {
+      const sorted = [...unsettled].sort((a, b) => b.date.localeCompare(a.date));
+      unsettledEl.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr style="border-bottom:2px solid #eee;">
+            <th style="padding:6px 4px; width:32px;"></th>
+            <th style="text-align:left; padding:6px 8px; color:#888; font-weight:500;">날짜</th>
+            <th style="text-align:left; padding:6px 8px; color:#888; font-weight:500;">판매자</th>
+            <th style="text-align:left; padding:6px 8px; color:#888; font-weight:500;">품목</th>
+            <th style="text-align:right; padding:6px 8px; color:#888; font-weight:500;">금액</th>
+            <th style="text-align:left; padding:6px 8px; color:#888; font-weight:500;">메모</th>
+            <th style="padding:6px 4px;"></th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(s => `
+              <tr style="border-bottom:1px solid #f5f5f5;">
+                <td style="padding:7px 4px; text-align:center;">
+                  <input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#5d4037;"
+                    onchange="if(this.checked) settleMiscOne('${s.id}')">
+                </td>
+                <td style="padding:7px 8px; color:#555;">${s.date}</td>
+                <td style="padding:7px 8px;"><span class="badge ${getBadgeClass(s.seller)}">${s.seller}</span></td>
+                <td style="padding:7px 8px; font-weight:500;">${s.item || ''}</td>
+                <td style="padding:7px 8px; text-align:right; font-weight:600; color:#1a237e;">${fmt(s.amount || 0)}</td>
+                <td style="padding:7px 8px; color:#888; font-size:12px;">${s.memo || ''}</td>
+                <td style="padding:7px 4px;"><button onclick="deleteMiscSale('${s.id}')" style="background:none; border:none; color:#ccc; cursor:pointer; font-size:16px;" title="삭제">✕</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+  }
+
+  // 송금 완료 내역 — 항목 있으면 자동 펼침
+  const settledBody = document.getElementById('miscSettledBody');
+  if (settledBody) settledBody.style.display = settled.length > 0 ? 'block' : 'none';
+
+  const settledEl = document.getElementById('miscSettledList');
+  if (settledEl) {
+    if (settled.length === 0) {
+      settledEl.innerHTML = '<p style="color:#ccc; text-align:center; padding:12px; font-size:12px;">송금 완료 내역 없음</p>';
+    } else {
+      const sorted = [...settled].sort((a, b) => (b.settledAt || '').localeCompare(a.settledAt || ''));
+      settledEl.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:12px; color:#aaa;">
+          <thead><tr style="border-bottom:1px solid #eee;">
+            <th style="text-align:left; padding:5px 8px;">날짜</th>
+            <th style="text-align:left; padding:5px 8px;">판매자</th>
+            <th style="text-align:left; padding:5px 8px;">품목</th>
+            <th style="text-align:right; padding:5px 8px;">금액</th>
+            <th style="text-align:left; padding:5px 8px;">메모</th>
+            <th style="text-align:left; padding:5px 8px; color:#888;">송금날짜</th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(s => {
+              const d = s.settledAt ? new Date(s.settledAt) : null;
+              const settledStr = d ? d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '-';
+              return `
+              <tr style="border-bottom:1px solid #fafafa;">
+                <td style="padding:5px 8px;">${s.date}</td>
+                <td style="padding:5px 8px;">${s.seller}</td>
+                <td style="padding:5px 8px;">${s.item || ''}</td>
+                <td style="padding:5px 8px; text-align:right;">${fmt(s.amount || 0)}</td>
+                <td style="padding:5px 8px;">${s.memo || ''}</td>
+                <td style="padding:5px 8px; color:#5d4037; font-weight:500;">${settledStr}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    }
+  }
+}
+
+function addMiscSale() {
+  const date   = document.getElementById('miscDate').value;
+  const seller = document.getElementById('miscSeller').value;
+  const item   = document.getElementById('miscItem').value.trim();
+  const amtRaw = document.getElementById('miscAmount').value.replace(/,/g, '');
+  const memo   = document.getElementById('miscMemo').value.trim();
+  const amount = parseInt(amtRaw) || 0;
+
+  if (!seller) { alert('판매자를 선택해주세요'); return; }
+  if (!item)   { alert('품목을 입력해주세요'); return; }
+  if (!amount) { alert('금액을 입력해주세요'); return; }
+
+  const sales = DB.miscSales;
+  sales.push({ id: uuid(), date: date || new Date().toISOString().slice(0,10), seller, item, amount, memo, settled: false, createdAt: new Date().toISOString() });
+  DB.miscSales = sales;
+
+  // 입력 초기화
+  document.getElementById('miscItem').value = '';
+  document.getElementById('miscAmount').value = '';
+  document.getElementById('miscMemo').value = '';
+
+  renderMiscTab();
+}
+
+function deleteMiscSale(id) {
+  if (!confirm('삭제할까요?')) return;
+  DB.miscSales = DB.miscSales.filter(s => s.id !== id);
+  renderMiscTab();
+}
+
+function settleMiscOne(id) {
+  const now = new Date().toISOString();
+  DB.miscSales = DB.miscSales.map(s => s.id === id ? { ...s, settled: true, settledAt: now } : s);
+  renderMiscTab();
+}
+
+function settleMiscSeller(seller) {
+  if (!confirm(`${seller}의 누적 내역을 모두 송금 완료로 표시할까요?`)) return;
+  const now = new Date().toISOString();
+  DB.miscSales = DB.miscSales.map(s =>
+    (!s.settled && s.seller === seller) ? { ...s, settled: true, settledAt: now } : s
+  );
+  renderMiscTab();
 }
 
 initApp();
