@@ -435,10 +435,10 @@
 <!-- ===== 잡화 화면 ===== -->
 <div id="miscScreen" style="display:none; min-height:100vh; background:#f5f5f5;">
   <div class="header" style="background:#5d4037;">
-    <button class="btn-switch-project" onclick="goToProjectScreen()" style="margin-right:8px;">← 뒤로</button>
     <div style="font-size:18px; font-weight:900; color:white; letter-spacing:-0.3px;">🛒 잡화 판매</div>
     <div class="header-spacer"></div>
     <span id="miscSyncStatus" style="font-size:11px;opacity:0.8;color:white;white-space:nowrap;">● 동기화됨</span>
+    <button class="btn-switch-project" onclick="goToProjectScreen()">⊞ 프로젝트 전환</button>
   </div>
   <div class="main">
     <div id="miscStatsGrid" class="stats-grid"></div>
@@ -464,14 +464,20 @@
     <div class="card">
       <div class="card-title">📋 누적 중</div>
       <div id="miscUnsettledList"></div>
+      <div id="miscSelectionBar" style="display:none; margin-top:12px; padding:12px; background:#fff3e0; border-radius:8px; border:1.5px solid #ff9800;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <span style="font-weight:700; color:#5d4037;">선택 합계: <span id="miscSelectedTotal">₩0</span></span>
+          <button class="btn btn-primary" style="background:#5d4037; border-color:#5d4037; white-space:nowrap;" onclick="createMiscSettlement()">송금 완료 내역으로 넘기기</button>
+        </div>
+      </div>
     </div>
     <div class="card">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:6px;">
         <div style="display:flex; align-items:center; gap:10px; cursor:pointer; flex-wrap:wrap;" onclick="var b=document.getElementById('miscSettledBody'); b.style.display=b.style.display==='none'?'block':'none'">
           <div class="card-title" style="margin:0; color:#999;">🗂 송금 완료 내역</div>
           <div style="display:flex; align-items:center; gap:6px; background:#f5f5f5; border-radius:6px; padding:3px 10px; font-size:12px; color:#666;" onclick="event.stopPropagation()">
-            <span>우리은행 1002367480284</span>
-            <button onclick="navigator.clipboard.writeText('1002367480284').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='복사',1500)})" style="background:#5d4037;color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">복사</button>
+            <span>카카오뱅크 3333377351871</span>
+            <button onclick="navigator.clipboard.writeText('3333377351871').then(()=>{this.textContent='✓';setTimeout(()=>this.textContent='복사',1500)})" style="background:#5d4037;color:white;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;">복사</button>
           </div>
         </div>
         <span style="color:#aaa; font-size:12px; cursor:pointer;" onclick="var b=document.getElementById('miscSettledBody'); b.style.display=b.style.display==='none'?'block':'none'">펼치기/접기</span>
@@ -836,6 +842,8 @@ const DB = {
   set miscSales(v) { this._set('misc_sales', v); },
   get miscWallet() { return this._get('misc_wallet') || {}; },
   set miscWallet(v) { this._set('misc_wallet', v); },
+  get miscSettlements() { return this._get('misc_settlements') || []; },
+  set miscSettlements(v) { this._set('misc_settlements', v); },
 
   get items() { return this._get(this._key('items')) || []; },
   set items(v) { this._set(this._key('items'), v); },
@@ -2932,6 +2940,7 @@ initColorPicker();
 
 // ===================== FIREBASE INIT & APP START =====================
 let _refreshTimer = null;
+let _miscSelected = new Set();
 function scheduleRefresh() {
   clearTimeout(_refreshTimer);
   _refreshTimer = setTimeout(() => {
@@ -3012,7 +3021,7 @@ async function initApp() {
         } catch(e) {}
       });
       // Firebase에서 삭제된 misc 키는 localStorage에서도 제거
-      ['misc_sales', 'misc_wallet'].forEach(key => {
+      ['misc_sales', 'misc_wallet', 'misc_settlements'].forEach(key => {
         if (!(key in data) && localStorage.getItem(key) !== null) {
           delete DB._mem[key];
           localStorage.removeItem(key);
@@ -3171,9 +3180,8 @@ function renderMiscTab() {
     if (cur) sellerEl.value = cur;
   }
 
-  // 미정산 / 정산완료 분리
+  // 미정산 분리
   const unsettled = sales.filter(s => !s.settled);
-  const settled   = sales.filter(s => s.settled);
 
   // 판매자별 누적 금액 = 포카마켓 지갑 + 전체 리스트(누적중 + 송금완료) 합산
   const wallet = DB.miscWallet;
@@ -3215,7 +3223,8 @@ function renderMiscTab() {
               <tr style="border-bottom:1px solid #f5f5f5;">
                 <td style="padding:7px 4px; text-align:center;">
                   <input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#5d4037;"
-                    onchange="if(this.checked) settleMiscOne('${s.id}')">
+                    ${_miscSelected.has(s.id) ? 'checked' : ''}
+                    onchange="toggleMiscSelect('${s.id}', this.checked)">
                 </td>
                 <td style="padding:7px 8px; color:#555;">${s.date}</td>
                 <td style="padding:7px 8px;"><span class="badge ${getBadgeClass(s.seller)}">${s.seller}</span></td>
@@ -3229,42 +3238,88 @@ function renderMiscTab() {
     }
   }
 
-  // 송금 완료 내역 — 항목 있으면 자동 펼침
+  // 선택 합계 바 업데이트
+  const bar = document.getElementById('miscSelectionBar');
+  const totalEl = document.getElementById('miscSelectedTotal');
+  if (bar && totalEl) {
+    // _miscSelected 중 현재 unsettled에 존재하는 항목만 유효
+    const validIds = new Set(unsettled.map(s => s.id));
+    _miscSelected.forEach(id => { if (!validIds.has(id)) _miscSelected.delete(id); });
+    if (_miscSelected.size === 0) {
+      bar.style.display = 'none';
+    } else {
+      bar.style.display = 'block';
+      const selTotal = unsettled.filter(s => _miscSelected.has(s.id)).reduce((sum, s) => sum + (s.amount || 0), 0);
+      totalEl.textContent = fmt(selTotal);
+    }
+  }
+
+  // 송금 완료 내역 — settlements 기반으로 렌더링
+  const settlements = DB.miscSettlements;
+  // 혹시 있을 레거시 (settlementId 없이 settled된 항목)
+  const legacySettled = sales.filter(s => s.settled && !s.settlementId);
+
   const settledBody = document.getElementById('miscSettledBody');
-  if (settledBody) settledBody.style.display = settled.length > 0 ? 'block' : 'none';
+  const hasSettled = settlements.length > 0 || legacySettled.length > 0;
+  if (settledBody) settledBody.style.display = hasSettled ? 'block' : 'none';
 
   const settledEl = document.getElementById('miscSettledList');
   if (settledEl) {
-    if (settled.length === 0) {
+    if (!hasSettled) {
       settledEl.innerHTML = '<p style="color:#ccc; text-align:center; padding:12px; font-size:12px;">송금 완료 내역 없음</p>';
     } else {
-      const sorted = [...settled].sort((a, b) => (b.settledAt || '').localeCompare(a.settledAt || ''));
-      settledEl.innerHTML = `
-        <table style="width:100%; border-collapse:collapse; font-size:12px; color:#aaa;">
-          <thead><tr style="border-bottom:1px solid #eee;">
-            <th style="text-align:left; padding:5px 8px;">날짜</th>
-            <th style="text-align:left; padding:5px 8px;">판매자</th>
-            <th style="text-align:left; padding:5px 8px;">품목</th>
-            <th style="text-align:right; padding:5px 8px;">금액</th>
-            <th style="text-align:left; padding:5px 8px;">메모</th>
-            <th style="text-align:left; padding:5px 8px; color:#888;">송금날짜</th>
-          </tr></thead>
-          <tbody>
-            ${sorted.map(s => {
-              const d = s.settledAt ? new Date(s.settledAt) : null;
-              const settledStr = d ? d.toLocaleString('ko-KR', {month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '-';
-              return `
-              <tr style="border-bottom:1px solid #fafafa;">
-                <td style="padding:5px 8px;">${s.date}</td>
-                <td style="padding:5px 8px;">${s.seller}</td>
-                <td style="padding:5px 8px;">${s.item || ''}</td>
-                <td style="padding:5px 8px; text-align:right;">${fmt(s.amount || 0)}</td>
-                <td style="padding:5px 8px;">${s.memo || ''}</td>
-                <td style="padding:5px 8px; color:#5d4037; font-weight:500;">${settledStr}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>`;
+      const sorted = [...settlements].sort((a, b) => b.settledAt.localeCompare(a.settledAt));
+      const batchHtml = sorted.map((st, i) => {
+        const d = new Date(st.settledAt);
+        const dateStr = d.toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'});
+        const detailId = `misc-batch-${i}`;
+        const itemsHtml = st.items.map(s => `
+          <tr style="border-bottom:1px solid #fafafa;">
+            <td style="padding:4px 8px; color:#888; font-size:12px;">${s.date}</td>
+            <td style="padding:4px 8px;"><span class="badge ${getBadgeClass(s.seller)}" style="font-size:11px;">${s.seller}</span></td>
+            <td style="padding:4px 8px; color:#555; font-size:12px;">${s.item || ''}</td>
+            <td style="padding:4px 8px; text-align:right; color:#1a237e; font-weight:500; font-size:12px;">${fmt(s.amount || 0)}</td>
+            <td style="padding:4px 8px; color:#aaa; font-size:11px;">${s.memo || ''}</td>
+          </tr>`).join('');
+        return `
+          <div style="margin-bottom:6px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#fafafa; cursor:pointer; user-select:none;"
+                 onclick="var d=document.getElementById('${detailId}'); d.style.display=d.style.display==='none'?'block':'none'">
+              <span style="font-weight:700; color:#5d4037; font-size:15px;">${fmt(st.total)}</span>
+              <span style="color:#aaa; font-size:12px;">${dateStr} · ${st.items.length}건 ▾</span>
+            </div>
+            <div id="${detailId}" style="display:none; padding:6px 4px;">
+              <table style="width:100%; border-collapse:collapse;"><tbody>${itemsHtml}</tbody></table>
+            </div>
+          </div>`;
+      }).join('');
+
+      // 레거시 항목이 있으면 별도 배치로 표시
+      let legacyHtml = '';
+      if (legacySettled.length > 0) {
+        const legacyTotal = legacySettled.reduce((sum, s) => sum + (s.amount || 0), 0);
+        const legacyItems = legacySettled.map(s => `
+          <tr style="border-bottom:1px solid #fafafa;">
+            <td style="padding:4px 8px; color:#888; font-size:12px;">${s.date}</td>
+            <td style="padding:4px 8px;"><span class="badge ${getBadgeClass(s.seller)}" style="font-size:11px;">${s.seller}</span></td>
+            <td style="padding:4px 8px; color:#555; font-size:12px;">${s.item || ''}</td>
+            <td style="padding:4px 8px; text-align:right; color:#1a237e; font-weight:500; font-size:12px;">${fmt(s.amount || 0)}</td>
+            <td style="padding:4px 8px; color:#aaa; font-size:11px;">${s.memo || ''}</td>
+          </tr>`).join('');
+        legacyHtml = `
+          <div style="margin-bottom:6px; border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; opacity:0.7;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#fafafa; cursor:pointer; user-select:none;"
+                 onclick="var d=document.getElementById('misc-legacy'); d.style.display=d.style.display==='none'?'block':'none'">
+              <span style="font-weight:700; color:#5d4037; font-size:15px;">${fmt(legacyTotal)}</span>
+              <span style="color:#aaa; font-size:12px;">이전 내역 · ${legacySettled.length}건 ▾</span>
+            </div>
+            <div id="misc-legacy" style="display:none; padding:6px 4px;">
+              <table style="width:100%; border-collapse:collapse;"><tbody>${legacyItems}</tbody></table>
+            </div>
+          </div>`;
+      }
+
+      settledEl.innerHTML = batchHtml + legacyHtml;
     }
   }
 }
@@ -3296,6 +3351,49 @@ function addMiscSale() {
 function deleteMiscSale(id) {
   if (!confirm('삭제할까요?')) return;
   DB.miscSales = DB.miscSales.filter(s => s.id !== id);
+  renderMiscTab();
+}
+
+function toggleMiscSelect(id, checked) {
+  if (checked) {
+    _miscSelected.add(id);
+  } else {
+    _miscSelected.delete(id);
+  }
+  const bar = document.getElementById('miscSelectionBar');
+  const totalEl = document.getElementById('miscSelectedTotal');
+  if (!bar || !totalEl) return;
+  if (_miscSelected.size === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'block';
+  const unsettled = DB.miscSales.filter(s => !s.settled);
+  const selTotal = unsettled.filter(s => _miscSelected.has(s.id)).reduce((sum, s) => sum + (s.amount || 0), 0);
+  totalEl.textContent = fmt(selTotal);
+}
+
+function createMiscSettlement() {
+  if (_miscSelected.size === 0) return;
+  const sales = DB.miscSales;
+  const selectedItems = sales.filter(s => _miscSelected.has(s.id) && !s.settled);
+  if (selectedItems.length === 0) return;
+  const now = new Date().toISOString();
+  const settlementId = uuid();
+  const total = selectedItems.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const settlement = {
+    id: settlementId,
+    settledAt: now,
+    total,
+    items: selectedItems.map(s => ({ ...s }))
+  };
+  const settlements = DB.miscSettlements;
+  settlements.push(settlement);
+  DB.miscSettlements = settlements;
+  DB.miscSales = sales.map(s =>
+    _miscSelected.has(s.id) ? { ...s, settled: true, settledAt: now, settlementId } : s
+  );
+  _miscSelected.clear();
   renderMiscTab();
 }
 
