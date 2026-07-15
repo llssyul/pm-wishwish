@@ -512,6 +512,7 @@
   <div class="main">
     <div id="tab-dashboard" class="tab-content active">
       <div class="stats-grid" id="statsGrid"></div>
+      <div class="card"><div class="card-title">카테고리별 매출</div><div id="categoryStats"></div></div>
       <div class="card"><div class="card-title">판매자별 현황</div><div id="sellerStats"></div></div>
       <div class="card"><div class="card-title">최근 판매 내역</div><div class="table-wrapper" id="recentSalesTable"></div></div>
     </div>
@@ -1831,6 +1832,57 @@ function renderDashboard() {
     <div class="stat-card orange"><div class="stat-label">🔄 판매 중 금액</div><div class="stat-value">${fmt(activeSales.reduce((a,b)=>a+(b.total||0),0))}</div><div class="stat-sub">${activeSales.length}건 진행 중</div></div>
     <div class="stat-card indigo"><div class="stat-label">📦 총 판매건</div><div class="stat-value">${sales.length}<span style="font-size:18px;font-weight:600;margin-left:4px;">건</span></div><div class="stat-sub">완료 ${completedSales.length}건 · 진행 ${activeSales.length}건</div></div>`;
 
+  // 카테고리별 매출 (앨범 vs 포토카드) — 상품의 category를 기준으로 완료된 판매금액을 집계한다.
+  const itemsById = {};
+  DB.items.forEach(it => { itemsById[it.id] = it; });
+  const categoryRevenue = {};
+  completedSales.forEach(sale => {
+    const saleItems = sale.items || [];
+    if (saleItems.length === 0) { categoryRevenue['기타'] = (categoryRevenue['기타']||0) + (sale.total||0); return; }
+    // 한 판매 건에 포함된 상품들의 카테고리 구성 파악 (수량 기준)
+    const catQty = {};
+    let totalQty = 0;
+    saleItems.forEach(li => {
+      const item = itemsById[li.itemId];
+      const cat = item ? (item.category || '기타') : '기타';
+      const qty = li.qty || 0;
+      catQty[cat] = (catQty[cat]||0) + qty;
+      totalQty += qty;
+    });
+    const cats = Object.keys(catQty);
+    if (cats.length <= 1) {
+      // 한 판매 건에 카테고리가 하나뿐이면(대부분의 경우) 판매금액 전체를 그 카테고리에 배정
+      categoryRevenue[cats[0] || '기타'] = (categoryRevenue[cats[0] || '기타']||0) + (sale.total||0);
+    } else if (totalQty > 0) {
+      // 여러 카테고리가 섞인 판매는 단가가 일관되게 입력되지 않는 경우가 있어 수량 비율로 안분한다.
+      cats.forEach(cat => {
+        categoryRevenue[cat] = (categoryRevenue[cat]||0) + (sale.total||0) * (catQty[cat]/totalQty);
+      });
+    } else {
+      categoryRevenue['기타'] = (categoryRevenue['기타']||0) + (sale.total||0);
+    }
+  });
+  const albumRevenue = categoryRevenue['앨범'] || 0;
+  const pcRevenue = categoryRevenue['포토카드'] || 0;
+  const etcRevenue = Math.max(0, totalRevenue - albumRevenue - pcRevenue);
+  const albumPct = totalRevenue > 0 ? (albumRevenue / totalRevenue * 100) : 0;
+  const pcPct = totalRevenue > 0 ? (pcRevenue / totalRevenue * 100) : 0;
+  document.getElementById('categoryStats').innerHTML = totalRevenue > 0 ? `
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1;background:#fdf2f8;border:1.5px solid #f9a8d4;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">💿 앨범</div>
+        <div style="font-size:24px;font-weight:800;color:#db2777;">${Math.round(albumPct*10)/10}%</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${fmt(Math.round(albumRevenue))}</div>
+      </div>
+      <div style="flex:1;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">🎴 포토카드</div>
+        <div style="font-size:24px;font-weight:800;color:#4f46e5;">${Math.round(pcPct*10)/10}%</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${fmt(Math.round(pcRevenue))}</div>
+      </div>
+    </div>
+    ${etcRevenue > 1 ? `<div style="font-size:12px;color:#bbb;text-align:center;margin-top:10px;">기타/미분류: ${fmt(Math.round(etcRevenue))}</div>` : ''}
+  ` : '<div class="empty-state">완료된 판매 내역이 없습니다</div>';
+
   // 재고 요약 제거됨 — inventorySummary 엘리먼트 없음
 
   let sellerHtml = '';
@@ -2565,9 +2617,10 @@ function renderSettlement() {
   sellers.forEach(s=>{received[s]=0;shippingPaid[s]=0;shippingShare[s]=0;});
   sales.forEach(sale=>{received[sale.receiver]=(received[sale.receiver]||0)+(sale.total||0);});
   shipping.forEach(e=>{
+    // 실 지출(payer 기준 cost) — 실제로 낸 금액
     shippingPaid[e.payer]=(shippingPaid[e.payer]||0)+e.cost;
+    // 지출 분담금(1/n 균등분배) — 원래 부담했어야 할 몫. 아래 차액 계산에 실 지출과 함께 반영됨.
     sellers.forEach((s,i)=>{
-      // share 없으면 균등 분배 fallback
       const shareVal = e.share ? (e.share[s]||0) : (i===0 ? e.cost-Math.floor(e.cost/sellers.length)*(sellers.length-1) : Math.floor(e.cost/sellers.length));
       shippingShare[s]=(shippingShare[s]||0)+shareVal;
     });
@@ -2592,11 +2645,17 @@ function renderSettlement() {
     const base=useAmt?totalStakeAmt:totalStakeQty;
     const val=useAmt?stakeAmt[s]:stakeQty[s];
     stakePct[s]=base>0?(val/base):1/sellers.length;
-    stakeShare[s]=netRevenue*stakePct[s];
+    // 지분 분배분은 총매출(totalRevenue) 기준으로 계산한다.
+    // 배송비는 지분율이 아니라 1/n 균등으로 별도 분담하기로 했으므로, 매출에서 배송비를 먼저 뺀 순수익(netRevenue)에
+    // 지분율을 곱하면 배송비까지 지분율대로 나눈 셈이 되어버려 실제 분담 방식과 어긋난다.
+    stakeShare[s]=totalRevenue*stakePct[s];
   });
   const hasPurchaseData=totalStakeQty>0;
 
-  const balance={};sellers.forEach(s=>{balance[s]=(received[s]||0)-(shippingShare[s]||0)-stakeShare[s];});
+  // 차액 = (수령액 - 지분분배분) + (지출분담금 - 실지출)
+  //  · 수령액-지분분배분: 판매금이 자기 지분보다 많았는지/적었는지
+  //  · 지출분담금-실지출: 배송비 등을 원래 부담해야 할 몫(1/n)보다 실제로 더/덜 냈는지에 대한 조정
+  const balance={};sellers.forEach(s=>{balance[s]=((received[s]||0)-stakeShare[s])+((shippingShare[s]||0)-(shippingPaid[s]||0));});
   const colors=['blue','green'];
   let html='';
 
@@ -2626,9 +2685,9 @@ function renderSettlement() {
     html+='<div class="settlement-box '+colors[i]+'">';
     html+='<div class="settlement-name"><span class="badge-person '+getBadgeClass(seller)+'">'+seller+'</span></div>';
     html+='<div class="settlement-row"><span>입금 수령액</span><b>'+fmt(received[seller])+'</b></div>';
-    html+='<div class="settlement-row"><span>지출 부담분</span><b style="color:var(--danger)">-'+fmt(shippingShare[seller])+'</b></div>';
-    html+='<div class="settlement-row"><span>실 지출</span><b>'+fmt(shippingPaid[seller])+'</b></div>';
-    html+='<div class="settlement-row"><span>지분 분배분 ('+pctLabel+')</span><b>'+fmt(Math.round(stakeShare[seller]))+'</b></div>';
+    html+='<div class="settlement-row"><span>지분 분배분 ('+pctLabel+', 총매출 기준)</span><b>'+fmt(Math.round(stakeShare[seller]))+'</b></div>';
+    html+='<div class="settlement-row"><span>지출 분담금 (1/'+sellers.length+', 원래 부담할 몫)</span><b>'+fmt(shippingShare[seller])+'</b></div>';
+    html+='<div class="settlement-row"><span>실 지출 (배송비 등 실제 낸 금액)</span><b style="color:var(--danger)">-'+fmt(shippingPaid[seller])+'</b></div>';
     var bColor=balance[seller]>=0?'var(--danger)':'var(--success)';
     var bArrow=balance[seller]>=0?'▲':'▼';
     html+='<div class="settlement-row"><span style="font-weight:700;">차액</span><b style="color:'+bColor+'">'+bArrow+' '+fmt(Math.abs(Math.round(balance[seller])))+'</b></div>';
@@ -2642,7 +2701,7 @@ function renderSettlement() {
   html+='<div class="settlement-row"><span>순 수익</span><b>'+fmt(netRevenue)+'</b></div>';
   sellers.forEach(function(s){
     var pctLabel=hasPurchaseData?(Math.round(stakePct[s]*1000)/10)+'%':'50%';
-    html+='<div class="settlement-row"><span>'+s+' 지분 분배 ('+pctLabel+')</span><b>'+fmt(Math.round(stakeShare[s]))+'</b></div>';
+    html+='<div class="settlement-row"><span>'+s+' 지분 분배 ('+pctLabel+', 총매출 기준)</span><b>'+fmt(Math.round(stakeShare[s]))+'</b></div>';
   });
   html+='</div>';
 
