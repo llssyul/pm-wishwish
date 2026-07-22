@@ -808,10 +808,24 @@ function setSyncStatus(status) {
 const DB = {
   _mem: {},
 
-  get currentProjectId() { return localStorage.getItem('pm_current_project') || null; },
+  // 탭마다 독립적으로 "현재 프로젝트"를 기억하도록 sessionStorage 사용
+  // (localStorage는 탭 간에 공유되어, 탭 A에서 프로젝트를 전환하면 탭 B에서
+  //  하던 작업이 엉뚱한 프로젝트에 적용되는 사고가 발생할 수 있었음)
+  get currentProjectId() {
+    let v = sessionStorage.getItem('pm_current_project');
+    if (v === null) {
+      // 이전 버전 호환: 이 탭에서 처음 로드된 경우 localStorage 값을 1회 이전
+      const legacy = localStorage.getItem('pm_current_project');
+      if (legacy) {
+        sessionStorage.setItem('pm_current_project', legacy);
+        v = legacy;
+      }
+    }
+    return v || null;
+  },
   set currentProjectId(v) {
-    if (v) localStorage.setItem('pm_current_project', v);
-    else localStorage.removeItem('pm_current_project');
+    if (v) sessionStorage.setItem('pm_current_project', v);
+    else sessionStorage.removeItem('pm_current_project');
   },
 
   _get(key) {
@@ -879,7 +893,7 @@ const DB = {
       if (_fbReady) fbDB.ref('store/' + key).remove();
     });
     this.projects = this.projects.filter(p => p.id !== pid);
-    if (this.currentProjectId === pid) localStorage.removeItem('pm_current_project');
+    if (this.currentProjectId === pid) this.currentProjectId = null;
   }
 };
 
