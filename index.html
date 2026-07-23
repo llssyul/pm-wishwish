@@ -2472,11 +2472,12 @@ function renderInventory() {
     stockByHolder[e.itemId][e.holder] = (stockByHolder[e.itemId][e.holder]||0) + e.qty;
   });
 
-  // 판매 수량 집계 — 등록 시점의 seller 기준으로 보유자별 차감
+  // 판매 수량 집계 — 발송자(shippedBy) 기준으로 보유자별 차감
+  // (발송자가 아직 지정되지 않은 건은 판매자를 임시로 사용 — 발송자 지정 시 자동으로 바뀜)
   const soldByHolder = {};  // { itemId: { holder: qty } }
   sales.forEach(sale => {
-    const holder = sale.seller;
-    if (!holder) return; // 판매자 없는 건 제외
+    const holder = sale.shippedBy || sale.seller;
+    if (!holder) return; // 판매자/발송자 없는 건 제외
     (sale.items||[]).forEach(si => {
       if (!soldByHolder[si.itemId]) soldByHolder[si.itemId] = {};
       soldByHolder[si.itemId][holder] = (soldByHolder[si.itemId][holder]||0) + si.qty;
