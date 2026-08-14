@@ -38,6 +38,17 @@
   .project-screen-logo h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; }
   .project-screen-logo p { font-size: 14px; opacity: 0.75; margin-top: 6px; }
 
+  .bundle-badge {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 2px 7px; border-radius: 10px; color: #fff;
+    font-size: 11px; font-weight: 700; white-space: nowrap; line-height: 1.5;
+  }
+  .bundle-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: #f3f0ff; border: 1.5px solid #d6ccff; border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 12px; font-size: 13px;
+  }
+
   .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; max-width: 900px; width: 100%; }
   .project-card {
     border-radius: 16px; padding: 24px; cursor: pointer; transition: all 0.2s;
@@ -58,6 +69,13 @@
     font-size: 12px; display: none; align-items: center; justify-content: center;
   }
   .project-card:hover .delete-project-btn { display: flex; }
+  .project-card .rename-project-btn {
+    position: absolute; top: 12px; right: 42px;
+    background: rgba(255,255,255,0.15); border: none; color: white;
+    width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    font-size: 12px; display: none; align-items: center; justify-content: center;
+  }
+  .project-card:hover .rename-project-btn { display: flex; }
 
   .project-add-card {
     background: rgba(255,255,255,0.07); border: 2px dashed rgba(255,255,255,0.35);
@@ -286,6 +304,7 @@
   .sale-form-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 16px; }
   .sale-form-grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 16px; margin-bottom: 16px; }
   .sale-form-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; margin-bottom: 16px; }
+  .sale-form-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
   .sale-form-grid-last { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 120px; gap: 16px; align-items: flex-end; }
   /* SETTINGS FORM GRID CLASSES */
   .settings-form-1a { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: flex-end; }
@@ -341,6 +360,7 @@
     .sale-form-grid-4 { grid-template-columns: 1fr 1fr; gap: 10px; }
     .sale-form-grid-5 { grid-template-columns: 1fr 1fr; gap: 10px; }
     .sale-form-grid-2 { grid-template-columns: 1fr; gap: 10px; }
+    .sale-form-grid-3 { grid-template-columns: 1fr; gap: 10px; }
     .sale-form-grid-last { grid-template-columns: 1fr; gap: 10px; }
     .sale-form-grid-last button.btn-primary { width: 100%; height: 44px; }
 
@@ -375,7 +395,7 @@
     .item-qty-input, .item-price-input { width: 100% !important; }
     .card { overflow: hidden; }
     /* 그리드 아이템 overflow 방지 */
-    .sale-form-grid-4 > *, .sale-form-grid-5 > *, .sale-form-grid-2 > *,
+    .sale-form-grid-4 > *, .sale-form-grid-5 > *, .sale-form-grid-2 > *, .sale-form-grid-3 > *,
     .sale-form-grid-last > *, .settings-form-1a > *, .settings-form-2a > *,
     .purchase-form-grid > * { min-width: 0; overflow: hidden; }
     /* 발송자 버튼 wrap 허용 (모바일 카드) */
@@ -532,9 +552,10 @@
             <div class="form-group"><label>수량</label><input type="number" id="iQty" min="1" value="1" style="width:100%;"></div>
             <div class="form-group"><label>금액 (₩)</label><input type="number" id="iTotal" min="0" placeholder="0"></div>
           </div>
-          <div class="sale-form-grid-2">
+          <div class="sale-form-grid-3">
             <div class="form-group"><label>배송방법</label><select id="iShipMethod"><option value="">선택</option></select></div>
             <div class="form-group"><label>입금유무</label><select id="iIsPaid"><option value="">선택</option><option value="true">Y</option><option value="false">N</option></select></div>
+            <div class="form-group"><label>합배송</label><select id="iBundle"><option value="">단건(합배송 아님)</option></select></div>
           </div>
           <div class="sale-form-grid-last">
             <div class="form-group"><label>메모</label><input type="text" id="iNotes" placeholder="특이사항 (선택)"></div>
@@ -553,9 +574,11 @@
           <div class="form-group"><label>상품</label><select id="filterItem" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>배송방법</label><select id="filterShipMethod" onchange="renderSalesList()"><option value="">전체</option></select></div>
           <div class="form-group"><label>배송완료</label><select id="filterShipped" onchange="renderSalesList()"><option value="">전체</option><option value="y">완료</option><option value="n">미완료</option></select></div>
+          <div class="form-group"><label>합배송</label><select id="filterBundle" onchange="renderSalesList()"><option value="">전체</option><option value="y">합배송만</option><option value="n">단건만</option></select></div>
           <div class="form-group"><label>검색</label><input type="text" id="filterSearch" placeholder="메모 · 예약번호 검색" oninput="renderSalesList()" style="width:100%;"></div>
           <div class="form-group" style="justify-content:flex-end;"><label style="visibility:hidden;">초기화</label><button class="btn btn-outline" onclick="clearFilters()" style="padding:9px 16px;font-size:13px;">초기화</button></div>
         </div>
+        <div id="bundleBar"></div>
         <div class="table-wrapper" id="salesListTable"></div>
         <div class="mt-16" id="salesListSummary" style="text-align:right; font-size:13px; color: var(--text-secondary);"></div>
       </div>
@@ -711,6 +734,10 @@
         <div class="form-group"><label>입금유무</label><select id="eIsPaid"><option value="">선택</option><option value="true">Y</option><option value="false">N</option></select></div>
       </div>
       <div class="sale-form-grid-2" style="gap:12px;margin-bottom:12px;">
+        <div class="form-group"><label>합배송</label><select id="eBundle"><option value="">단건(합배송 아님)</option></select></div>
+        <div class="form-group"><label style="visibility:hidden;">안내</label><div id="eBundleInfo" style="font-size:11px;color:var(--text-secondary);padding-top:10px;"></div></div>
+      </div>
+      <div class="sale-form-grid-2" style="gap:12px;margin-bottom:12px;">
         <div class="form-group"><label>상태</label><select id="eStatus"><option value="">선택</option></select></div>
         <div class="form-group"><label>발송자</label><div id="eShippedByBtns" data-value="" style="display:flex;gap:6px;flex-wrap:wrap;padding-top:4px;"></div></div>
       </div>
@@ -745,6 +772,21 @@
     <div class="btn-group">
       <button class="btn btn-danger" id="confirmOkBtn">확인</button>
       <button class="btn btn-outline" onclick="closeModal('confirmModal')">취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="renameProjectModal">
+  <div class="new-project-modal">
+    <h2>프로젝트 이름 수정</h2>
+    <p>이름만 변경되며 판매·재고·정산 데이터는 그대로 유지됩니다.</p>
+    <div class="form-group" style="margin-bottom:24px;">
+      <label>프로젝트 이름</label>
+      <input type="text" id="renameProjectName" placeholder="새 이름" style="font-size:16px;">
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveProjectRename()">저장</button>
+      <button class="btn btn-outline" onclick="closeModal('renameProjectModal')">취소</button>
     </div>
   </div>
 </div>
@@ -918,6 +960,74 @@ function getItemName(id) {
   return item ? item.name : id;
 }
 
+// ===================== 합배송(묶음) 유틸 =====================
+// sale.bundleNo : 같은 번호를 가진 판매건들이 하나의 합배송 묶음
+const BUNDLE_COLORS = ['#8e24aa','#1e88e5','#00897b','#f4511e','#5e35b1','#c2185b','#3949ab','#00838f'];
+function bundleColor(no) {
+  const n = parseInt(no, 10) || 0;
+  return BUNDLE_COLORS[(n - 1 + BUNDLE_COLORS.length) % BUNDLE_COLORS.length];
+}
+// 현재 프로젝트의 묶음 목록 — [{no, sales, count, total}] (번호 오름차순)
+function getBundles(salesArr) {
+  const sales = salesArr || DB.sales;
+  const map = new Map();
+  sales.forEach(function(s) {
+    const no = parseInt(s.bundleNo, 10);
+    if (!no) return;
+    if (!map.has(no)) map.set(no, []);
+    map.get(no).push(s);
+  });
+  return [...map.entries()]
+    .map(([no, arr]) => ({
+      no: no,
+      sales: arr,
+      count: arr.length,
+      total: arr.reduce((a, b) => a + (b.total || 0), 0)
+    }))
+    .sort((a, b) => a.no - b.no);
+}
+function nextBundleNo() {
+  const nos = DB.sales.map(s => parseInt(s.bundleNo, 10)).filter(n => !!n);
+  return nos.length ? Math.max.apply(null, nos) + 1 : 1;
+}
+// 묶음 식별용 짧은 라벨 (이름 → 닉네임 → 메모)
+function bundleTag(bundle) {
+  const first = bundle.sales[0] || {};
+  const raw = (first.buyerName || first.buyer || first.notes || '').trim();
+  const t = raw.length > 8 ? raw.slice(0, 8) + '…' : raw;
+  return t ? t : '';
+}
+function bundleOptionText(bundle) {
+  const tag = bundleTag(bundle);
+  return '#' + bundle.no + (tag ? ' · ' + tag : '') + ' (' + bundle.count + '건)';
+}
+// 합배송 선택 드롭다운 채우기 (value: '' | 'new' | 묶음번호)
+function fillBundleSelect(sel, currentValue) {
+  if (!sel) return;
+  const bundles = getBundles();
+  let html = '<option value="">단건(합배송 아님)</option><option value="new">＋ 새 묶음 만들기</option>';
+  bundles.forEach(function(b) {
+    html += '<option value="' + b.no + '">🔗 ' + bundleOptionText(b) + '</option>';
+  });
+  sel.innerHTML = html;
+  const want = (currentValue === undefined || currentValue === null) ? '' : String(currentValue);
+  sel.value = want;
+  if (sel.value !== want) sel.value = '';   // 없는 묶음이면 단건으로
+}
+// 드롭다운 값 → 저장할 bundleNo (null이면 단건)
+function resolveBundleNo(val) {
+  if (val === 'new') return nextBundleNo();
+  const n = parseInt(val, 10);
+  return n ? n : null;
+}
+function bundleBadgeHtml(sale, clickable) {
+  const no = parseInt(sale.bundleNo, 10);
+  if (!no) return '';
+  const c = bundleColor(no);
+  const click = clickable ? ' onclick="event.stopPropagation();filterByBundle(' + no + ')" style="cursor:pointer;' : ' style="';
+  return '<span class="bundle-badge"' + click + 'background:' + c + ';" title="합배송 묶음 #' + no + '">🔗 #' + no + '</span>';
+}
+
 // ===================== PROJECT SCREEN =====================
 let selectedColor = PROJECT_COLORS[4];
 
@@ -961,6 +1071,7 @@ function renderProjectScreen() {
         <div class="project-stat"><b>${sales.length}</b>총 판매건</div>
         <div class="project-stat"><b>${fmt(totalRev)}</b>완료 수익</div>
       </div>
+      <button class="rename-project-btn" title="이름 수정" onclick="event.stopPropagation(); showRenameProjectModal('${p.id}')">✎</button>
       <button class="delete-project-btn" onclick="event.stopPropagation(); deleteProject('${p.id}')">✕</button>
     `;
     card.onclick = () => openProject(p.id);
@@ -1755,6 +1866,33 @@ function _doRestoreColorProject() {
   openProject(pid);
 }
 
+let _renamingProjectId = null;
+function showRenameProjectModal(pid) {
+  const p = DB.projects.find(x => x.id === pid);
+  if (!p) return;
+  _renamingProjectId = pid;
+  document.getElementById('renameProjectName').value = p.name || '';
+  openModal('renameProjectModal');
+  setTimeout(() => document.getElementById('renameProjectName').select(), 50);
+}
+function saveProjectRename() {
+  const name = document.getElementById('renameProjectName').value.trim();
+  if (!name) { alert('프로젝트 이름을 입력하세요.'); return; }
+  const projects = DB.projects;
+  const p = projects.find(x => x.id === _renamingProjectId);
+  if (!p) { closeModal('renameProjectModal'); return; }
+  if (projects.some(x => x.id !== _renamingProjectId && x.name === name)) {
+    alert('같은 이름의 프로젝트가 이미 있습니다.'); return;
+  }
+  p.name = name;
+  DB.projects = projects;
+  _renamingProjectId = null;
+  closeModal('renameProjectModal');
+  renderProjectScreen();
+  const nameEl = document.getElementById('headerProjectName');
+  if (nameEl && DB.currentProjectId === p.id) nameEl.textContent = name;
+}
+
 function deleteProject(pid) {
   const project = DB.projects.find(p => p.id === pid);
   confirm2(`"${project?.name}" 프로젝트를 삭제하시겠습니까?\n모든 데이터가 사라집니다.`, () => {
@@ -2003,6 +2141,8 @@ function renderSalesList() {
   if(iShipMethod){const cur=iShipMethod.value;iShipMethod.innerHTML='<option value="">선택</option>';(s.shippingMethods||[]).forEach(v=>iShipMethod.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
   const iCourier=document.getElementById('iCourier');
   if(iCourier){const cur=iCourier.value;iCourier.innerHTML='<option value="">선택</option>';(s.couriers||[]).forEach(v=>iCourier.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
+  const iBundle=document.getElementById('iBundle');
+  if(iBundle){fillBundleSelect(iBundle, iBundle.value);}
   const iStatus=document.getElementById('iStatus');
   if(iStatus){const cur=iStatus.value;iStatus.innerHTML='<option value="">선택</option>';(s.statuses||[]).forEach(v=>iStatus.innerHTML+=`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`);}
   // 필터 드롭다운 채우기
@@ -2017,6 +2157,15 @@ function renderSalesList() {
   if(fItem){const curI=fItem.value;fItem.innerHTML='<option value="">전체</option>';DB.items.forEach(v=>fItem.innerHTML+=`<option value="${v.id}" ${v.id===curI?'selected':''}>${v.name}</option>`);}
   const fShipMethod=document.getElementById('filterShipMethod');
   if(fShipMethod){const curSM=fShipMethod.value;fShipMethod.innerHTML='<option value="">전체</option>';(s.shippingMethods||[]).forEach(v=>fShipMethod.innerHTML+=`<option value="${v}" ${v===curSM?'selected':''}>${v}</option>`);}
+  const fBundle=document.getElementById('filterBundle');
+  if(fBundle){
+    const curB=fBundle.value;
+    let bh='<option value="">전체</option><option value="y">합배송만</option><option value="n">단건만</option>';
+    getBundles().forEach(function(b){ bh+='<option value="'+b.no+'">🔗 '+bundleOptionText(b)+'</option>'; });
+    fBundle.innerHTML=bh;
+    fBundle.value=curB;
+    if(fBundle.value!==curB) fBundle.value='';
+  }
   // 필터 적용
   let sales = DB.sales;
   const sf=fSeller.value, pf=fPlatform.value;
@@ -2030,21 +2179,44 @@ function renderSalesList() {
   if(smf) sales=sales.filter(s=>s.shippingMethod===smf);
   if(shippedF==='y') sales=sales.filter(s=>!!s.isShipped);
   if(shippedF==='n') sales=sales.filter(s=>!s.isShipped);
+  const bundleF=document.getElementById('filterBundle')?.value||'';
+  if(bundleF==='y') sales=sales.filter(s=>!!parseInt(s.bundleNo,10));
+  else if(bundleF==='n') sales=sales.filter(s=>!parseInt(s.bundleNo,10));
+  else if(bundleF) sales=sales.filter(s=>parseInt(s.bundleNo,10)===parseInt(bundleF,10));
   if(searchQ) sales=sales.filter(s=>
     (s.notes||'').toLowerCase().includes(searchQ) ||
     (s.reservationNo||'').toLowerCase().includes(searchQ) ||
     (s.buyerName||'').toLowerCase().includes(searchQ)
   );
   // 발송 체크된 항목은 아래로, 미발송은 위로 (각 그룹 내에서는 최신순)
+  // 합배송 묶음은 서로 붙어서 보이도록, 묶음 내 최신 건 기준으로 그룹 정렬
+  const bundleKey = {};
+  sales.forEach(s=>{
+    const no=parseInt(s.bundleNo,10); if(!no) return;
+    const k=s.createdAt||s.date||'';
+    if(!bundleKey[no]||k>bundleKey[no]) bundleKey[no]=k;
+  });
+  const groupKey = s => {
+    const no=parseInt(s.bundleNo,10);
+    return no ? (bundleKey[no]||'') : (s.createdAt||s.date||'');
+  };
   sales=[...sales].sort((a,b)=>{
     const aShipped = a.isShipped ? 1 : 0;
     const bShipped = b.isShipped ? 1 : 0;
     if (aShipped !== bShipped) return aShipped - bShipped;
+    const gk = groupKey(b).localeCompare(groupKey(a));
+    if (gk !== 0) return gk;
+    const an=parseInt(a.bundleNo,10)||0, bn=parseInt(b.bundleNo,10)||0;
+    if (an !== bn) return an - bn;
     return (b.createdAt||b.date||'').localeCompare(a.createdAt||a.date||'');
   });
   const total=sales.reduce((a,b)=>a+(b.total||0),0);
   const totalQty = sales.reduce((a,b) => a + (b.items||[]).reduce((c,d) => c + (d.qty||0), 0), 0);
-  document.getElementById('salesListSummary').innerHTML=`총 ${sales.length}건 (${totalQty.toLocaleString()}개) | 합계: <b>${fmt(total)}</b>`;
+  const bundleCount = getBundles(sales).length;
+  const bundleSaleCount = sales.filter(s=>!!parseInt(s.bundleNo,10)).length;
+  const bundleSummary = bundleCount ? ` | 합배송 ${bundleCount}묶음(${bundleSaleCount}건)` : '';
+  document.getElementById('salesListSummary').innerHTML=`총 ${sales.length}건 (${totalQty.toLocaleString()}개)${bundleSummary} | 합계: <b>${fmt(total)}</b>`;
+  renderBundleBar(bundleF);
   document.getElementById('salesListTable').innerHTML = sales.length ? buildSalesTable(sales,true) : '<div class="empty-state"><div class="icon">🔍</div>조건에 맞는 판매 내역이 없습니다</div>';
 }
 function buildSalesTable(sales, withEdit) {
@@ -2059,6 +2231,7 @@ function buildSalesTable(sales, withEdit) {
     + '<th style="text-align:center;">판매상품</th>'
     + '<th style="text-align:center;">금액</th>'
     + '<th style="text-align:center;">배송방법</th>'
+    + '<th style="text-align:center;">합배송</th>'
     + '<th style="text-align:center;">입금</th>'
     + shipHeader
     + memoHeader + editHeader
@@ -2100,6 +2273,7 @@ function buildSalesTable(sales, withEdit) {
       + '<td style="text-align:center;font-size:12px;max-width:140px;">'+itemName+'</td>'
       + '<td style="text-align:center;font-weight:700;white-space:nowrap;">'+fmt(sale.total)+'</td>'
       + '<td style="text-align:center;font-size:12px;white-space:nowrap;">'+(sale.shippingMethod||'-')+'</td>'
+      + '<td style="text-align:center;white-space:nowrap;">'+(bundleBadgeHtml(sale, withEdit)||'-')+'</td>'
       + '<td style="text-align:center;white-space:nowrap;">'+paidBadge+'</td>'
       + '<td style="text-align:center;white-space:nowrap;">'+shipBtn+'</td>'
       + memoCell + editCell
@@ -2146,6 +2320,7 @@ function buildSalesTable(sales, withEdit) {
       + '<span class="badge-person '+getBadgeClass(sale.seller)+'">'+sale.seller+'</span>'
       + '<span class="sale-card-platform">'+(sale.platform||'-')+'</span>'
       + '<span class="sale-card-date">'+(sale.date||'')+'</span>'
+      + bundleBadgeHtml(sale, withEdit)
       + shipBtnCard
       + '</div>'
       + '<div class="sale-card-main">'
@@ -2221,8 +2396,56 @@ function setStatusFilter(val) {
   if (el) el.dataset.selected = val;
   renderSalesList();
 }
+// 특정 묶음만 보기 (목록의 🔗 배지 클릭)
+function filterByBundle(no) {
+  const el=document.getElementById('filterBundle');
+  if(!el) return;
+  el.value=String(no);
+  if(el.value!==String(no)) return;
+  renderSalesList();
+  document.getElementById('bundleBar')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+// 묶음 하나만 필터된 상태에서 묶음 요약 + 일괄 발송 처리
+function renderBundleBar(bundleF) {
+  const bar=document.getElementById('bundleBar');
+  if(!bar) return;
+  const no=parseInt(bundleF,10);
+  if(!no){ bar.innerHTML=''; return; }
+  const bundle=getBundles().find(b=>b.no===no);
+  if(!bundle){ bar.innerHTML=''; return; }
+  const tag=bundleTag(bundle);
+  const sellers=DB.settings.sellers||[];
+  let btns='<button class="shipper-btn" onclick="bulkShipBundle('+no+',\'\')">미발송</button>';
+  sellers.forEach(function(s,i){ btns+='<button class="shipper-btn" onclick="bulkShipBundle('+no+',\''+s+'\')">'+s+'</button>'; });
+  bar.innerHTML='<div class="bundle-bar">'
+    + bundleBadgeHtml({bundleNo:no}, false)
+    + '<b>합배송 묶음'+(tag?' · '+tag:'')+'</b>'
+    + '<span style="color:var(--text-secondary);">'+bundle.count+'건 · '+fmt(bundle.total)+'</span>'
+    + '<span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+    + '<span style="font-size:12px;color:var(--text-secondary);">묶음 전체 발송</span>'+btns
+    + '<button class="btn btn-outline btn-sm" onclick="clearFilters()">필터 해제</button>'
+    + '</span></div>';
+}
+// 묶음 전체 발송자 일괄 지정
+function bulkShipBundle(no, value) {
+  const sales=DB.sales;
+  let n=0;
+  sales.forEach(function(sale){
+    if(parseInt(sale.bundleNo,10)!==parseInt(no,10)) return;
+    sale.shippedBy = value || null;
+    sale.isShipped = !!value;
+    if(value) sale.status='배송완료';
+    else if(sale.status==='배송완료') sale.status='판매중';
+    n++;
+  });
+  if(!n) return;
+  DB.sales=sales;
+  renderSalesList();
+  const dashTab=document.getElementById('tab-dashboard');
+  if(dashTab&&dashTab.classList.contains('active')) renderDashboard();
+}
 function clearFilters() {
-  ['filterSeller','filterPlatform','filterItem','filterShipMethod','filterShipped'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['filterSeller','filterPlatform','filterItem','filterShipMethod','filterShipped','filterBundle'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const fs=document.getElementById('filterSearch');if(fs)fs.value='';
   renderSalesList();
 }
@@ -2250,6 +2473,7 @@ function submitInlineSale() {
   const reservationNo = document.getElementById('iReservationNo').value.trim();
   const trackingNo = document.getElementById('iTrackingNo').value.trim();
   const courier = document.getElementById('iCourier').value;
+  const bundleNo = resolveBundleNo(document.getElementById('iBundle')?.value || '');
   if (!seller) { alert('판매자를 선택하세요.'); return; }
   if (!platform) { alert('플랫폼을 선택하세요.'); return; }
   const unitPrice = qty > 1 ? Math.round(total / qty) : total;
@@ -2260,7 +2484,8 @@ function submitInlineSale() {
     status: status || '판매중',
     buyer: '', buyerName: '',
     shippingMethod, isPaid, isShipped,
-    items, total, notes, reservationNo, trackingNo, courier
+    items, total, notes, reservationNo, trackingNo, courier,
+    bundleNo: bundleNo
   };
   const sales = DB.sales; sales.unshift(sale); DB.sales = sales;
   // 입력폼 초기화 (판매자/플랫폼 유지)
@@ -2273,6 +2498,9 @@ function submitInlineSale() {
   document.getElementById('iReservationNo').value = '';
   document.getElementById('iTrackingNo').value = '';
   document.getElementById('iCourier').value = '';
+  // 합배송은 유지 — 같은 묶음으로 연속 등록하기 쉽게, '새 묶음'은 방금 만든 번호로 고정
+  const iBundleEl = document.getElementById('iBundle');
+  if (iBundleEl) fillBundleSelect(iBundleEl, bundleNo);
   renderSalesList();
 }
 function showSaleDetail(id) {
@@ -2288,6 +2516,12 @@ function showSaleDetail(id) {
       <div><span style="color:var(--text-secondary);font-size:12px;">이름</span><br><b>${sale.buyerName||'-'}</b></div>
       <div><span style="color:var(--text-secondary);font-size:12px;">배송 방법</span><br><b>${sale.shippingMethod||'-'}</b></div>
       <div><span style="color:var(--text-secondary);font-size:12px;">상태</span><br><span class="badge-status ${getStatusBadge(sale.status)}">${sale.status}</span></div>
+      <div><span style="color:var(--text-secondary);font-size:12px;">합배송</span><br>${(() => {
+        const no = parseInt(sale.bundleNo, 10);
+        if (!no) return '<b>단건</b>';
+        const b = getBundles().find(x => x.no === no);
+        return bundleBadgeHtml(sale, false) + (b ? ` <span style="font-size:12px;">${b.count}건 · ${fmt(b.total)}</span>` : '');
+      })()}</div>
     </div>
     <table style="width:100%;margin-bottom:12px;">
       <thead><tr><th>상품</th><th class="text-right">수량</th><th class="text-right">단가</th><th class="text-right">소계</th></tr></thead>
@@ -2393,12 +2627,29 @@ function editSale(id) {
   eStatus.innerHTML='<option value="">선택</option>';
   (s.statuses||[]).forEach(v=>eStatus.innerHTML+=`<option value="${v}">${v}</option>`);
   eStatus.value=sale.status||'';
+  const eBundle=document.getElementById('eBundle');
+  if(eBundle){
+    fillBundleSelect(eBundle, parseInt(sale.bundleNo,10)||'');
+    eBundle.onchange=updateBundleEditInfo;
+    updateBundleEditInfo();
+  }
   renderShipperModalBtns(s.sellers||[], sale.shippedBy||'');
   document.getElementById('eNotes').value=sale.notes||'';
   document.getElementById('eReservationNo').value=sale.reservationNo||'';
   document.getElementById('eTrackingNo').value=sale.trackingNo||'';
   document.getElementById('saleEditSaveBtn').onclick=()=>saveSaleEdit(id);
   openModal('saleEditModal');
+}
+function updateBundleEditInfo() {
+  const sel=document.getElementById('eBundle');
+  const info=document.getElementById('eBundleInfo');
+  if(!sel||!info) return;
+  const v=sel.value;
+  if(v==='new') { info.textContent='저장 시 새 묶음 #'+nextBundleNo()+' 이 만들어집니다.'; return; }
+  const no=parseInt(v,10);
+  if(!no) { info.textContent='합배송이 아닌 단건입니다.'; return; }
+  const b=getBundles().find(x=>x.no===no);
+  info.innerHTML = b ? ('묶음 #'+no+' · 현재 '+b.count+'건 · '+fmt(b.total)) : '';
 }
 function saveSaleEdit(id) {
   const sales=DB.sales; const idx=sales.findIndex(s=>s.id===id); if(idx<0) return;
@@ -2436,6 +2687,8 @@ function saveSaleEdit(id) {
   sale.reservationNo=document.getElementById('eReservationNo').value.trim();
   sale.trackingNo=document.getElementById('eTrackingNo').value.trim();
   sale.courier=document.getElementById('eCourier').value;
+  const eBundleEl=document.getElementById('eBundle');
+  if(eBundleEl) sale.bundleNo=resolveBundleNo(eBundleEl.value);
   DB.sales=sales;
   closeModal('saleEditModal');
   renderSalesList();
@@ -3121,6 +3374,15 @@ async function initApp() {
   const projects = DB.projects;
   const colorProj = projects.find(p => p.name === '컬러 프로젝트');
   if (colorProj) { colorProj.name = '컬러'; DB.projects = projects; }
+
+  // "메이크스타 포토북" → "혜민 개별판매건" 이름 마이그레이션 (최초 1회)
+  const mksProj = projects.find(p => p.name === '메이크스타 포토북');
+  if (mksProj) {
+    mksProj.name = '혜민 개별판매건';
+    DB.projects = projects;
+    const hdr = document.getElementById('headerProjectName');
+    if (hdr && DB.currentProjectId === mksProj.id) hdr.textContent = mksProj.name;
+  }
 
   // 프로젝트별 지정 색상 마이그레이션
   let colorChanged = false;
