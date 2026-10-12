@@ -59,7 +59,7 @@
   .project-card .project-color-dot { width: 12px; height: 12px; border-radius: 50%; margin-bottom: 12px; }
   .project-card .project-name { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
   .project-card .project-meta { font-size: 12px; opacity: 0.7; margin-bottom: 16px; }
-  .project-card .project-stats { display: flex; gap: 16px; }
+  .project-card .project-stats { display: flex; gap: 16px; padding-right: 72px; }
   .project-card .project-stat { font-size: 11px; opacity: 0.8; }
   .project-card .project-stat b { display: block; font-size: 16px; font-weight: 700; opacity: 1; }
   .project-card .delete-project-btn {
@@ -76,6 +76,16 @@
     font-size: 12px; display: none; align-items: center; justify-content: center;
   }
   .project-card:hover .rename-project-btn { display: flex; }
+  .project-card .move-card-btn {
+    position: absolute; bottom: 10px; background: rgba(255,255,255,0.15);
+    border: none; color: white; width: 24px; height: 24px; border-radius: 50%;
+    cursor: pointer; font-size: 15px; line-height: 1; font-weight: 700;
+    display: none; align-items: center; justify-content: center; padding: 0;
+  }
+  .project-card .move-card-btn:hover { background: rgba(255,255,255,0.4); }
+  .project-card .move-prev { right: 42px; }
+  .project-card .move-next { right: 12px; }
+  .project-card:hover .move-card-btn { display: flex; }
 
   .project-add-card {
     background: rgba(255,255,255,0.07); border: 2px dashed rgba(255,255,255,0.35);
@@ -894,6 +904,10 @@ const DB = {
   get projects() { return this._get('pm_projects') || []; },
   set projects(v) { this._set('pm_projects', v); },
 
+  // 첫 화면 카드 노출 순서 — 프로젝트 id 배열, 잡화 카드는 '__misc__'
+  get cardOrder() { return this._get('pm_card_order') || []; },
+  set cardOrder(v) { this._set('pm_card_order', v); },
+
   // 잡화 판매 — 프로젝트 독립 키
   get miscSales() { return this._get('misc_sales') || []; },
   set miscSales(v) { this._set('misc_sales', v); },
@@ -1043,12 +1057,73 @@ function initColorPicker() {
   });
 }
 
+// ===================== 카드 노출 순서 =====================
+const MISC_CARD_ID = '__misc__';
+// 현재 화면에 있는 카드 id (프로젝트 + 잡화)
+function getAllCardIds() {
+  return DB.projects.map(p => p.id).concat([MISC_CARD_ID]);
+}
+// 저장된 순서 기준 정렬 — 저장되지 않은 새 카드는 맨 뒤에
+function getOrderedCardIds() {
+  const all = getAllCardIds();
+  const saved = DB.cardOrder.filter(id => all.indexOf(id) >= 0);
+  const rest = all.filter(id => saved.indexOf(id) < 0);
+  return saved.concat(rest);
+}
+// 카드를 앞(-1)/뒤(+1)로 한 칸 이동
+function moveCard(id, delta) {
+  const ids = getOrderedCardIds();
+  const i = ids.indexOf(id);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  ids.splice(j, 0, ids.splice(i, 1)[0]);
+  DB.cardOrder = ids;
+  renderProjectScreen();
+}
+function moveCardBtns(id, idx, total) {
+  let html = '';
+  if (idx > 0) html += '<button class="move-card-btn move-prev" title="앞으로" onclick="event.stopPropagation(); moveCard(\'' + id + '\',-1)">‹</button>';
+  if (idx < total - 1) html += '<button class="move-card-btn move-next" title="뒤로" onclick="event.stopPropagation(); moveCard(\'' + id + '\',1)">›</button>';
+  return html;
+}
+
 function renderProjectScreen() {
   const projects = DB.projects;
   const grid = document.getElementById('projectGrid');
   grid.innerHTML = '';
 
-  projects.forEach(p => {
+  const orderedIds = getOrderedCardIds();
+  const total = orderedIds.length;
+
+  orderedIds.forEach((cardId, idx) => {
+    if (cardId === MISC_CARD_ID) {
+      // 잡화 카드
+      const miscSales = DB.miscSales;
+      const miscUnsettled = miscSales.filter(s => !s.settled);
+      const miscListTotal = miscSales.reduce((a, b) => a + (b.amount || 0), 0);
+      const miscWallet = DB.miscWallet;
+      const miscWalletTotal = Object.values(miscWallet).reduce((a, w) => a + (w.amount || 0), 0);
+      const miscTotal = miscListTotal + miscWalletTotal;
+      const miscCard = document.createElement('div');
+      miscCard.className = 'project-card';
+      miscCard.style.background = 'rgba(93,64,55,0.75)';
+      miscCard.style.border = '1.5px solid rgba(93,64,55,0.9)';
+      miscCard.innerHTML = `
+        <div class="project-name" style="font-size:19px;font-weight:900;margin-bottom:4px;">🛒 잡화</div>
+        <div class="project-meta">앨범 외 자잘한 판매</div>
+        <div class="project-stats">
+          <div class="project-stat"><b>${miscUnsettled.length}</b>누적 중</div>
+          <div class="project-stat"><b>${fmt(miscTotal)}</b>누적 금액</div>
+        </div>
+        ${moveCardBtns(MISC_CARD_ID, idx, total)}
+      `;
+      miscCard.onclick = () => openMiscScreen();
+      grid.appendChild(miscCard);
+      return;
+    }
+
+    const p = projects.find(x => x.id === cardId);
+    if (!p) return;
     // Get quick stats — DB 레이어를 통해 읽어야 Firebase 동기화 데이터가 반영됨
     const savedPid = DB.currentProjectId;
     DB.currentProjectId = p.id;
@@ -1071,34 +1146,13 @@ function renderProjectScreen() {
         <div class="project-stat"><b>${sales.length}</b>총 판매건</div>
         <div class="project-stat"><b>${fmt(totalRev)}</b>완료 수익</div>
       </div>
+      ${moveCardBtns(p.id, idx, total)}
       <button class="rename-project-btn" title="이름 수정" onclick="event.stopPropagation(); showRenameProjectModal('${p.id}')">✎</button>
       <button class="delete-project-btn" onclick="event.stopPropagation(); deleteProject('${p.id}')">✕</button>
     `;
     card.onclick = () => openProject(p.id);
     grid.appendChild(card);
   });
-
-  // 잡화 카드
-  const miscSales = DB.miscSales;
-  const miscUnsettled = miscSales.filter(s => !s.settled);
-  const miscListTotal = miscSales.reduce((a, b) => a + (b.amount || 0), 0);
-  const miscWallet = DB.miscWallet;
-  const miscWalletTotal = Object.values(miscWallet).reduce((a, w) => a + (w.amount || 0), 0);
-  const miscTotal = miscListTotal + miscWalletTotal;
-  const miscCard = document.createElement('div');
-  miscCard.className = 'project-card';
-  miscCard.style.background = 'rgba(93,64,55,0.75)';
-  miscCard.style.border = '1.5px solid rgba(93,64,55,0.9)';
-  miscCard.innerHTML = `
-    <div class="project-name" style="font-size:19px;font-weight:900;margin-bottom:4px;">🛒 잡화</div>
-    <div class="project-meta">앨범 외 자잘한 판매</div>
-    <div class="project-stats">
-      <div class="project-stat"><b>${miscUnsettled.length}</b>누적 중</div>
-      <div class="project-stat"><b>${fmt(miscTotal)}</b>누적 금액</div>
-    </div>
-  `;
-  miscCard.onclick = () => openMiscScreen();
-  grid.appendChild(miscCard);
 
   // Add new project card
   const addCard = document.createElement('div');
@@ -3382,6 +3436,40 @@ async function initApp() {
     DB.projects = projects;
     const hdr = document.getElementById('headerProjectName');
     if (hdr && DB.currentProjectId === mksProj.id) hdr.textContent = mksProj.name;
+  }
+
+  // 첫 화면 카드 노출 순서 최초 1회 지정 (이후에는 ‹ › 버튼으로 사용자가 조정)
+  if (!DB.cardOrder || DB.cardOrder.length === 0) {
+    const normName = s => (s || '').toLowerCase().replace(/[\s_·.\-()[\]]/g, '');
+    const wanted = ['ispy', '오드투러브', MISC_CARD_ID, '혜민개별판매건', '지수개별판매건', '컬러', '컬러팝머치'];
+    const projs = DB.projects;
+    const matched = {};   // wanted → project id
+    // 1차: 이름 완전 일치
+    wanted.forEach(w => {
+      if (w === MISC_CARD_ID) return;
+      const hit = projs.find(p => normName(p.name) === w && Object.values(matched).indexOf(p.id) < 0);
+      if (hit) matched[w] = hit.id;
+    });
+    // 2차: 완전 일치가 없는 항목만 부분 일치로 보정 (예: 'I SPY 포토북')
+    wanted.forEach(w => {
+      if (w === MISC_CARD_ID || matched[w]) return;
+      const cands = projs.filter(p => {
+        if (Object.values(matched).indexOf(p.id) >= 0) return false;
+        const n = normName(p.name);
+        return n.indexOf(w) >= 0 || w.indexOf(n) >= 0;
+      });
+      cands.sort((a, b) => normName(a.name).length - normName(b.name).length);
+      if (cands.length) matched[w] = cands[0].id;
+    });
+    const ids = [];
+    wanted.forEach(w => {
+      if (w === MISC_CARD_ID) { ids.push(MISC_CARD_ID); return; }
+      if (matched[w]) ids.push(matched[w]);
+    });
+    // 지정 목록에 없는 프로젝트는 뒤에 이어 붙임
+    projs.forEach(p => { if (ids.indexOf(p.id) < 0) ids.push(p.id); });
+    if (ids.indexOf(MISC_CARD_ID) < 0) ids.push(MISC_CARD_ID);
+    DB.cardOrder = ids;
   }
 
   // 프로젝트별 지정 색상 마이그레이션
